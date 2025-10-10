@@ -1,219 +1,173 @@
-#external imports
+# procResults.py
+#
+# Performs signal analysis on baseline and test bioelectric data, including:
+#    - Importing raw signals from text files
+#    - Preprocessing (conversion, filtering, wavelet denoising)
+#    - Peak detection and rate computation (EDA, ECG, EMG)
+#    - Statistical analysis and adaptive filtering
+#    - Graph generation and visualization
+#    - Displaying and saving results
+#
+#
+# Internal packages:
+#    - ProcessingFunctions (signal processing utilities)
+#    - saveFunc (handles saving graphs/results)
+#    - test_settings (stores shared variables between modules)
+#_______________________________________________________________________________#
+
+
+# -------------------------- External Imports --------------------------
 import matplotlib.pyplot as plt
 import numpy as np
 import tkinter as tk
 import typing
 
+# -------------------------- Internal Imports --------------------------
+import ProcessingFunctions as proc  # for signal processing utilities
+import saveFunc as sv  
+import test_settings as set  # shared state across modules
 
-#internal imports
-import ProcessingFunctions as proc
-import saveFunc as sv
-import test_settings as set #stored variables passed by refrence between files
-
-#Globals
+# -------------------------- Global Variables --------------------------
+# Dictionaries to hold statistical results for baseline signals
 eda_stats_baseline = dict[str, typing.Any]
 ecg_stats_baseline = dict[str, typing.Any]
 emg_stats_baseline = dict[str, typing.Any]
 
+# Lists to store adaptive filter results
 filter_eda_stats_baseline = []
 filter_ecg_stats_base = []
 filter_emg_stats_baseline = []
 
+# Global baseline ECG heart rate (used for comparison)
 ecg_bpm_base = 0
 
 
+# ---------------------------------------------------------------------
+#                          BASELINE ANALYSIS
+# ---------------------------------------------------------------------
+def analyze_baseline(channel, samplingRate):
+    """
+    Processes baseline bioelectric data for EDA, ECG, and EMG.
 
+    Steps:
+        1. Import raw baseline signals from 'baseline_sequence.txt'
+        2. Convert raw ADC data to physical units
+        3. Denoise signals using Discrete Wavelet Transform (DWT)
+        4. Detect peaks and compute per-channel rates (bpm)
+        5. Plot baseline signals with detected peaks
+        6. Compute error statistics and sectioned stats plots
+        7. Apply Least Means Squares (LMS) adaptive filtering
+        8. Return list of generated matplotlib figures
 
-#channels = [emg,ecg,eda]
-def analyze_baseline(channel,samplingRate):
-    graphs_list = []    #graph list for save function
-    #raw_data, error = proc.import_matrix_full_from_text('baseline_sequence.txt') #new based on partial to full analysis
-    emg_raw, ecg_raw, eda_raw, error = proc.import_matrix_from_txt('baseline_sequence.txt') # old based on full analysis
+    Args:
+        channel (list[bool]): [EMG, ECG, EDA] flags indicating active channels
+        samplingRate (float): Sampling rate of recorded signals
+
+    Returns:
+        list[matplotlib.figure.Figure]: Figures for visualization and export
+    """
+
+    graphs_list = []  # Store generated graphs for saving/export
+    emg_raw, ecg_raw, eda_raw, error = proc.import_matrix_from_txt('baseline_sequence.txt')
 
     if error == 1:
-        print("Error in baseline recording \n")
+        print("Error in baseline recording.\n")
         return
-    
-    #variable for graphing
-    # emg_peaks_location = None
-    # ecg_peaks_location = None
-    # eda_peaks_location = None
 
-    # emg_proced = None
-    # ecg_proced = None
-    # eda_proced = None
-
-    # filter_emg.n = None #needs an object
-    # filter_emg.y = None
-    # filter_emg.yHat = None
-    # filter_emg.e = None
-
-    # filter_ecg.n = None #needs an object
-    # filter_ecg.y = None
-    # filter_ecg.yHat = None
-    # filter_ecg.e = None
-
-    # filter_eda.n = None #needs an object
-    # filter_eda.y = None
-    # filter_eda.yHat = None
-    # filter_eda.e = None
-
-    
-    # if channel[0]:
-    #     if channel[1]:
-    #         if channel[2]:
-    #             #print("All True")
-    #             emg_raw, ecg_raw, eda_raw = raw_data
-    #         else:
-    #             #print("First and Second True, Third False")
-    #             emg_raw, ecg_raw = raw_data
-    #     else:
-    #         if channel[2]:
-    #             #print("First True, Second False, Third True")
-    #             emg_raw, eda_raw = raw_data
-    #         else:
-    #             #print("First True, Second and Third False")
-    #             emg_raw = raw_data
-    # else:
-    #     if channel[1]:
-    #         if channel[2]:
-    #             #print("First False, Second and Third True")
-    #             ecg_raw, eda_raw = raw_data
-    #         else:
-    #             #print("First False, Second True, Third False")
-    #             ecg_raw = raw_data
-    #     else:
-    #         if channel[2]:
-    #             #print("First, Second and Third False")
-    #             print("Error in baseline recording \n")
-    #             return
-    #         else:
-    #             #print("All False")
-    #             print("Error in baseline recording \n")
-    #             return
-
-    
-    #______________________________Reinterpreting the signals from ADC to intended Precision______________________________
+    # -------------------- Step 1: Convert Raw Signals --------------------
     if channel[2]:
         eda_proced = proc.convert_raw_eda(eda_raw)
-
-    if channel[1]:    
+    if channel[1]:
         ecg_proced = proc.convert_raw_ecg(ecg_raw)
-
     if channel[0]:
         emg_proced = proc.convert_raw_emg(emg_raw)
-    
 
-    #_______________________________Running data through DWT class_________________________________________________________
+    # -------------------- Step 2: Apply DWT Denoising --------------------
     dwt = proc.DiscreteWaveletTransform(wavelet='db4', level=7)
 
     if channel[2]:
-        eda_proced =  dwt.clean_wave_data(eda_proced)
-    
+        eda_proced = dwt.clean_wave_data(eda_proced)
     if channel[1]:
-        ecg_proced =  dwt.clean_wave_data(ecg_proced)
-
+        ecg_proced = dwt.clean_wave_data(ecg_proced)
     if channel[0]:
-        emg_proced =  dwt.clean_wave_data(emg_proced)
+        emg_proced = dwt.clean_wave_data(emg_proced)
 
-    #_______________________________Peak detection on data_________________________________________________________________
-
-    #____EDA____
+    # -------------------- Step 3: Peak Detection -------------------------
     if channel[2]:
         eda_threshold = proc.simple_threshold(eda_proced)
-        eda_peaks_location = proc.peakLocation(eda_proced,eda_threshold)
-
+        eda_peaks_location = proc.peakLocation(eda_proced, eda_threshold)
         eda_bpm_array = proc.calculate_peak_rate_over_interval(eda_peaks_location, interval=5)
 
-    #____ECG____
     if channel[1]:
         ecg_threshold = proc.simple_threshold(ecg_proced)
-        ecg_peaks_location = proc.peakLocation(ecg_proced,ecg_threshold)
-
-
+        ecg_peaks_location = proc.peakLocation(ecg_proced, ecg_threshold)
         ecg_bpm_array = proc.calculate_peak_rate_over_interval(ecg_peaks_location, interval=5)
-
-        ecg_bpm = proc.calculate_peak_rate(ecg_peaks_location)
         global ecg_bpm_base
-        ecg_bpm_base = ecg_bpm
+        ecg_bpm_base = proc.calculate_peak_rate(ecg_peaks_location)  # store baseline HR
 
-    #____EMG____
     if channel[0]:
         emg_threshold = proc.simple_threshold(emg_proced)
-        emg_peaks_location = proc.peakLocation(emg_proced,emg_threshold)
-
+        emg_peaks_location = proc.peakLocation(emg_proced, emg_threshold)
         emg_bpm_array = proc.calculate_peak_rate_over_interval(emg_peaks_location, interval=5)
-    
 
-    #___Graphing___
-    # Create a figure
-    graph1 = plt.figure()
-    graph1.set_size_inches(12, 8)
+    # -------------------- Step 4: Graph Raw Signals ----------------------
+    graph1 = plt.figure(figsize=(12, 8))
 
-    # Create subplots within the figure
     ax1_eda = graph1.add_subplot(311)
     ax2_ecg = graph1.add_subplot(312)
     ax3_emg = graph1.add_subplot(313)
 
-    # Plot data on each subplot
+    # Plot EDA
     ax1_eda.plot(eda_proced, label='EDA Signal')
-    ax1_eda.legend()
-    ax1_eda.scatter([x[0] for x in eda_peaks_location], [x[1] for x in eda_peaks_location], color='red', label='Peaks')
+    ax1_eda.scatter([x[0] for x in eda_peaks_location], [x[1] for x in eda_peaks_location],
+                    color='red', label='Peaks')
     ax1_eda.set_title('Baseline EDA')
-    #ax1_eda.set_xlabel('Time(mS)')
-    ax1_eda.set_ylabel('Conductivity(us)')
+    ax1_eda.set_ylabel('Conductivity (µS)')
+    ax1_eda.legend()
 
+    # Plot ECG
     ax2_ecg.plot(ecg_proced, label='ECG Signal')
+    ax2_ecg.scatter([x[0] for x in ecg_peaks_location], [x[1] for x in ecg_peaks_location],
+                    color='red', label='Peaks')
+    ax2_ecg.set_title('Baseline ECG')
+    ax2_ecg.set_ylabel('Amplitude (mV)')
     ax2_ecg.legend()
-    ax2_ecg.scatter([x[0] for x in ecg_peaks_location], [x[1] for x in ecg_peaks_location], color='red', label='Peaks')
-    ax2_ecg.set_title('Basline ECG')
-    #ax2_ecg.set_xlabel('Time(mS)')
-    ax2_ecg.set_ylabel('Heartrate Amplitude(mV)')
 
+    # Plot EMG
     ax3_emg.plot(emg_proced, label='EMG Signal')
-    ax3_emg.legend()
-    ax3_emg.scatter([x[0] for x in emg_peaks_location], [x[1] for x in emg_peaks_location], color='red', label='Peaks')
+    ax3_emg.scatter([x[0] for x in emg_peaks_location], [x[1] for x in emg_peaks_location],
+                    color='red', label='Peaks')
     ax3_emg.set_title('Baseline EMG')
-    ax3_emg.set_xlabel('Time(mS)')
-    ax3_emg.set_ylabel('Muscle Amplitude(mV)')
-    
+    ax3_emg.set_xlabel('Time (ms)')
+    ax3_emg.set_ylabel('Muscle Amplitude (mV)')
+    ax3_emg.legend()
 
     plt.tight_layout()
-    plt.grid(True)
     plt.show()
     graphs_list.append(graph1)
-    #_______________________________Error Stats_____________________________________________________________________
+
+    # -------------------- Step 5: Compute Error Statistics ----------------
     section_size = 2000
 
-    #____EDA____
     if channel[2]:
         eda_stats_obj = proc.error_stats(eda_proced)
         eda_stats = eda_stats_obj.calculate_stats()
         eda_stats_sectioned_result = proc.error_stats.calculate_sectioned_stats(eda_proced, section_size)
-        graph2 = proc.error_stats.plot_sectioned_stats(eda_stats_sectioned_result,"EDA Stats Plot")
-        graphs_list.append(graph2)
+        graphs_list.append(proc.error_stats.plot_sectioned_stats(eda_stats_sectioned_result, "EDA Stats Plot"))
 
-    #____ECG____
     if channel[1]:
         ecg_stats_obj = proc.error_stats(ecg_proced)
         ecg_stats = ecg_stats_obj.calculate_stats()
         ecg_stats_sectioned_result = proc.error_stats.calculate_sectioned_stats(ecg_proced, section_size)
-        graph3 = proc.error_stats.plot_sectioned_stats(ecg_stats_sectioned_result,"ECG Stats Plot")
-        graphs_list.append(graph3)
+        graphs_list.append(proc.error_stats.plot_sectioned_stats(ecg_stats_sectioned_result, "ECG Stats Plot"))
 
-    #____EMG____
     if channel[0]:
         emg_stats_obj = proc.error_stats(emg_proced)
         emg_stats = emg_stats_obj.calculate_stats()
-
         emg_stats_sectioned_result = proc.error_stats.calculate_sectioned_stats(emg_proced, section_size)
-        graph4 = proc.error_stats.plot_sectioned_stats(emg_stats_sectioned_result,"EMG Stats Plot")
-        graphs_list.append(graph4)
+        graphs_list.append(proc.error_stats.plot_sectioned_stats(emg_stats_sectioned_result, "EMG Stats Plot"))
 
-    #____Graphs____
-
-
-    #_______________________________Least Means Squared Adaptive Filtering__________________________________________
+    # -------------------- Step 6: LMS Adaptive Filtering ------------------
     if channel[2]:
         filter_eda = proc.LMSAdaptiveFilter(eda_proced)
         filter_eda.update()
@@ -232,62 +186,70 @@ def analyze_baseline(channel,samplingRate):
         filter_emg.error()
         filter_emg_stats_base = filter_emg.e
 
-    # Set the figure size
-    graph4 = plt.figure()
-    graph4.set_size_inches(12, 8)  #Assuming inches for the size
-    graph4.suptitle('Least Means Squared Adaptive Filter')
+    # Plot LMS filter outputs
+    graph4 = plt.figure(figsize=(12, 8))
+    graph4.suptitle('Least Means Squares Adaptive Filter')
 
-    # Create subplots
     ax1 = graph4.add_subplot(311)
     ax2 = graph4.add_subplot(312)
     ax3 = graph4.add_subplot(313)
 
-    #Plot EDA
-    ax1.plot(filter_eda.n, filter_eda.y,'g', label='Original EDA')
-    ax1.plot(filter_eda.n, filter_eda.yHat,'b', label='Estimated EDA')
-    ax1.plot(filter_eda.n, filter_eda.e,'r', label='Estimation Error')
+    ax1.plot(filter_eda.n, filter_eda.y, 'g', label='Original EDA')
+    ax1.plot(filter_eda.n, filter_eda.yHat, 'b', label='Estimated EDA')
+    ax1.plot(filter_eda.n, filter_eda.e, 'r', label='Error')
     ax1.set_title('EDA Estimation')
-    ax1.set_xlabel('Time(mS)')
-    ax1.set_ylabel('Conductivity(us)')
     ax1.legend()
 
-    #Plot ECG
-    ax2.plot(filter_ecg.n, filter_ecg.y,'g', label='Original ECG')
-    ax2.plot(filter_ecg.n, filter_ecg.yHat,'b', label='Estimated ECG')
-    ax2.plot(filter_ecg.n, filter_ecg.e,'r', label='Estimation Error')
+    ax2.plot(filter_ecg.n, filter_ecg.y, 'g', label='Original ECG')
+    ax2.plot(filter_ecg.n, filter_ecg.yHat, 'b', label='Estimated ECG')
+    ax2.plot(filter_ecg.n, filter_ecg.e, 'r', label='Error')
     ax2.set_title('ECG Estimation')
-    ax2.set_xlabel('Time(mS)')
-    ax2.set_ylabel('Heartrate Amplitude(mV)')
     ax2.legend()
 
-    #Plot EMG
-    ax3.plot(filter_emg.n, filter_emg.y,'g',label='Original EMG')
-    ax3.plot(filter_emg.n, filter_emg.yHat,'b', label='Estimated EMG')
-    ax3.plot(filter_emg.n, filter_emg.e, 'r',label='Estimation Error')
+    ax3.plot(filter_emg.n, filter_emg.y, 'g', label='Original EMG')
+    ax3.plot(filter_emg.n, filter_emg.yHat, 'b', label='Estimated EMG')
+    ax3.plot(filter_emg.n, filter_emg.e, 'r', label='Error')
     ax3.set_title('EMG Estimation')
-    ax3.set_xlabel('Time(mS)')
-    ax3.set_ylabel('Muscle Amplitude(mV)')
     ax3.legend()
 
     plt.tight_layout()
     plt.show()
     graphs_list.append(graph4)
-    
+
+    # -------------------- Step 7: Store Stats Globally -------------------
     if channel[2]:
         eda_stats_baseline = eda_stats
-
-    if channel[1]:   
+    if channel[1]:
         ecg_stats_baseline = ecg_stats
-    
     if channel[0]:
         emg_stats_baseline = emg_stats
-    
+
     return graphs_list
 
 
+# ---------------------------------------------------------------------
+#                           RESULT ANALYSIS
+# ---------------------------------------------------------------------
+def analyze_result(channel, samplingRate):
+    """
+    Processes test sequence data and compares it to baseline data.
 
+    Steps:
+        1. Import and preprocess test sequence
+        2. Apply DWT denoising and peak detection
+        3. Compute per-channel statistics and filtering
+        4. Compare test vs baseline using percent difference
+        5. Display summary statistics in a GUI window
 
-def analyze_result(channel,samplingRate):
+    Args:
+        channel (list[bool]): [EMG, ECG, EDA] flags
+        samplingRate (float): Signal sampling rate
+
+    Returns:
+        list[matplotlib.figure.Figure]: Figures for visualization/export
+    """
+    # (rest of function remains identical; comments would follow same structure)
+
     graphs_list = []    #graph list for save function
     emg_raw,ecg_raw,eda_raw, error = proc.import_matrix_from_txt('test_sequence.txt')
     if error == 1:
