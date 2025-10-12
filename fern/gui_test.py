@@ -27,8 +27,22 @@ directory = ''
 box=0
 
 
-#------------------------------------------------SINE WAVE CREATION--------------------------
+# ---------------------------------------------------------------------------
+# SINE WAVE CREATION
+# ---------------------------------------------------------------------------
 def create_sine_wave(freq, db_volume, duration=1):
+    """
+    Creates a sine wave based on a specified frequency, volume in decibels, and duration. Converts
+    waves into a format that can be played as a sound (using Pygame)
+
+    Args:
+        freq (float): frequency of the sine way in Hertz
+
+        db_volume (float): volume in decibels
+
+        duration (always set to 1): duration of the wave in seconds
+
+    """
     linear_volume = db_to_linear(db_volume)
     sample_rate = 44100
     t = np.linspace(0, duration, int(sample_rate * duration), False)
@@ -37,7 +51,10 @@ def create_sine_wave(freq, db_volume, duration=1):
     contiguous_wave = np.ascontiguousarray(np.array([wave, wave]).T, dtype=np.int16)
     sound = pygame.sndarray.make_sound(contiguous_wave)
     return sound
- 
+
+# ---------------------------------------------------------------------------
+# DECIBEL TO LINEAR CONVERSION
+# ---------------------------------------------------------------------------
 def db_to_linear(db):
     return 10 ** (db / 20)
  
@@ -54,7 +71,9 @@ def adjust_volume(event):
     play_beep_sound(final_volume_db)
     volume_label.config(text=f"Current Volume: {final_volume_db} dB")
  
-# ------------------------------------------------HELPER FUNCTIONS---------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# HELPER FUNCTIONS
+# ---------------------------------------------------------------------------
 def print_tb(texts:str, message_box):
     message_box.config(text=texts)
  
@@ -109,7 +128,9 @@ def error_window():
 
     app.mainloop()
 
-# ------------------------------------------------BLUETOOTH FUNCTIONS------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# BLUETOOTH FUNCTIONS
+# ---------------------------------------------------------------------------
 def clear_saved_list(mac_combobox, message_box, check):
     global mac_options
  
@@ -212,7 +233,9 @@ def find_bluetooth_devices(mac_combobox, message_box):
     scan_thread = threading.Thread(target=bluetooth_scan, args=(mac_combobox, message_box, mac_options))
     scan_thread.start()
  
-# ------------------------------------------------USER INPUT FUNCTIONS-----------------------------------------------------------
+# ---------------------------------------------------------------------------
+# USER INPUT FUNCTIONS
+# ---------------------------------------------------------------------------
 def save_input(name_entry, age_entry, contact_info_entry, label):
     name = name_entry.get()
     age = age_entry.get()
@@ -277,7 +300,9 @@ def save_input(name_entry, age_entry, contact_info_entry, label):
     else:
         label.config(text="Please enter all fields!")
  
-# ------------------------------------------------BASELINE/TEST SEQUENCE FUNCTIONS-----------------------------------------------
+# ---------------------------------------------------------------------------
+# BASELINE/TEST SEQUENCE FUNCTIONS
+# ---------------------------------------------------------------------------
 def set_parameters():
     global frame
     clear_frame()
@@ -559,9 +584,11 @@ def finalize_volume():
  
  
 #----------Wav file scan---------------------
-# ------------------------------------------------STARTING/MAIN WINDOW------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# STARTING/MAIN WINDOW
+# ---------------------------------------------------------------------------
 def main():
-    # Check all Utilites before procceding
+    # Check all Utilites before proceeding
     if check_utilities() == -1:
         error_window()
         sys.exit()
