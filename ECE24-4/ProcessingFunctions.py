@@ -1,3 +1,16 @@
+# ProcessingFunctions.py
+# 
+# This module contains various signal processing utilities used throughout the system.
+# It includes:
+#   • Live moving average filters for real-time data smoothing
+#   • Discrete Wavelet Transform (DWT) for noise reduction
+#   • Error statistics computation and visualization tools
+#   • Least Means Squared (LMS) Adaptive Filter for error tracking
+#   • Import/conversion functions for sensor data (e.g., ECG, EDA, EMG)
+#   • Peak detection and rate calculation utilities for physiological signals
+#
+#_______________________________________________________________________________#
+
 #Imports
 import pywt #pip install PyWavelets - Installation can be finicky on this import
 import numpy as np
@@ -9,8 +22,19 @@ from matplotlib.figure import Figure
 
 #Classes
 
-#Moving averages
+#===============================================================================
+# CLASS: LiveMovingAverage
+#===============================================================================
 class LiveMovingAverage:
+    """
+    Implements a simple moving average (SMA) over a fixed window size.
+    Useful for smoothing real-time or streaming sensor data.
+
+    Attributes:
+        window_size (int): Number of samples in the moving average window.
+        data (list): Stores recent data points within the window.
+        total (float): Running total of values (for efficient average computation).
+    """
 
     def __init__(self, window_size):
         if window_size <= 0:
@@ -20,6 +44,10 @@ class LiveMovingAverage:
         self.total = 0.0
 
     def update(self, new_data):
+        """
+        Adds a new data point and updates the moving average window.
+        Drops the oldest sample if the window exceeds the defined size.
+        """
         if not isinstance(new_data, (int, float)):
             raise ValueError("New data should be numerical")
 
@@ -36,13 +64,24 @@ class LiveMovingAverage:
 
         return self.total / len(self.data)
 
-#Discrete Wave Transform
+#===============================================================================
+# CLASS: DiscreteWaveletTransform
+#===============================================================================
 class DiscreteWaveletTransform:
+    """
+    Uses Discrete Wavelet Transform (DWT) for noise reduction and signal cleaning.
+    Decomposes the input signal into frequency components, applies thresholding,
+    and reconstructs a denoised version of the signal.
+    """
+    
     def __init__(self, wavelet='haar', level=1):
         self.wavelet = wavelet
         self.level = level
     
     def clean_wave_data(self, data):
+        """
+        Applies wavelet decomposition and soft thresholding to remove high-frequency noise.
+        """
         #Perform Discrete Wavelet Transform (DWT)
         coeffs = pywt.wavedec(data, self.wavelet, level=self.level)
 
@@ -56,8 +95,14 @@ class DiscreteWaveletTransform:
         return cleaned_data
 
 
-#Error Stats
+#===============================================================================
+# CLASS: error_stats
+#===============================================================================
 class error_stats:
+    """
+    Provides statistical analysis tools for datasets and error computations.
+    Includes helper methods for sectioned stats, percent differences, and flag categorization.
+    """
     def __init__(self, data):
         self.data = data
 
@@ -83,6 +128,7 @@ class error_stats:
 
     @staticmethod
     def calculate_percent_difference(stats1, stats2):
+        """ Computes percent difference between two sets of statistics. """
         percent_diff = {}
         for key in stats1.keys():
             if key in stats2.keys():
@@ -94,6 +140,10 @@ class error_stats:
 
     @staticmethod
     def assign_flags(percent_diff):
+        """
+        Assigns qualitative flags based on the magnitude of percent differences.
+        Used to categorize physiological response strength.
+        """
         flags = {}
         for key, value in percent_diff.items():
             if value < 0:
@@ -118,6 +168,10 @@ class error_stats:
 
     @staticmethod
     def calculate_sectioned_stats(data, section_size):
+        """
+        Divides data into equal-sized sections and computes stats per section.
+        Useful for analyzing time-varying signals.
+        """
         num_sections = len(data) // section_size
 
         stats = {}
@@ -145,6 +199,7 @@ class error_stats:
 
     @staticmethod
     def plot_sectioned_stats(stats_result, title):
+        """ Plots sectioned statistics for visual analysis. """
         section_numbers = []
         max_values = []
         min_values = []
@@ -192,9 +247,17 @@ class error_stats:
         
         return fig
     
-
-#LMS Adaptive filter
+#===============================================================================
+# CLASS: LMSAdaptiveFilter
+#===============================================================================
 class LMSAdaptiveFilter:
+    """
+    Implements the Least Mean Squares (LMS) adaptive filtering algorithm.
+    Used to minimize estimation error between actual and predicted signals.
+
+    Tracks filter coefficients (a1Hat, b1Hat) over time and visualizes their convergence.
+    """
+    
     def __init__(self, data):
         self.N = len(data)         # total number of data points
         self.n = np.arange(0, self.N, 1)   # [0,..., N-1] (vector)          
@@ -216,6 +279,7 @@ class LMSAdaptiveFilter:
         self.u = 0.001                # step size (mu)
     
     def update(self):
+        """Performs iterative LMS filter updates."""
         for i in range (1, self.N-1):                             
             # Least Mean Squares(LMS) adaptive filter                          
             self.yHat[i] = self.a1Hat[i]*self.x[i-1] + self.b1Hat[i]*self.y[i-1]      # estimated mV concentration
@@ -227,6 +291,7 @@ class LMSAdaptiveFilter:
         self.e[self.N-1] = self.y[self.N-1] - self.yHat[self.N-1]  # last mV estimation error
 
     def error(self):
+        """Classifies error magnitudes into qualitative response levels."""
         threshold_1 = 15  # normal
         threshold_2 = 25  # slight response
         threshold_3 = 35  # mild response
@@ -283,6 +348,7 @@ class LMSAdaptiveFilter:
 
 
     def plot(self): 
+        """Plots estimated signal vs true signal, error evolution, and parameter updates."""
         graph1 = plt.figure(figsize=(10, 8), dpi=75)                                       
         plt.plot(self.n, self.y, 'g', label='mV values')
         plt.plot(self.n, self.yHat, 'b', label='estimated mV values')
@@ -338,8 +404,11 @@ class LMSAdaptiveFilter:
 
 #Functions 
 
-#import data from txt file
+#===============================================================================
+# IMPORT & CONVERSION FUNCTIONS
+#===============================================================================
 def import_array_from_txt(filename):
+    """Imports a single-channel data file as a 1D NumPy array."""
     #simple loader for one channel and testing
     try:
         array_data = np.loadtxt(filename)
@@ -349,6 +418,7 @@ def import_array_from_txt(filename):
         return 0
 
 def import_matrix_from_txt(filename): #code for importing matrix into arrays
+    """Imports multi-channel (comma-separated) sensor data."""
     #advanced loader for multiple channel capture
     if not os.path.exists(filename):
         return None, None,None, 1
@@ -438,7 +508,13 @@ def convert_raw_emg(adc_data):
     return emg_mv
 
 #Simple Threshold setter for peak identification
+#===============================================================================
+# PEAK DETECTION FUNCTIONS
+#===============================================================================
 def simple_threshold(data, window=2, index=0, sample_rate=1000):
+    """
+    Determines a dynamic threshold using a short time window.
+    """
     window = window * sample_rate
     section = data[index:index+window]
     if len(section) == 0:
@@ -448,6 +524,10 @@ def simple_threshold(data, window=2, index=0, sample_rate=1000):
 
 #Peak Detection
 def peakLocation(array,threshold = 1.9): 
+    """
+    Scans array for peaks above threshold.
+    Groups local peaks and returns their maximum value/index.
+    """
     idx = 0
     peak_array = [] #array holds peak values
     local_peak_array = []
@@ -515,3 +595,4 @@ def calculate_peak_rate_over_interval(peak_tuples, samplerate=1000, interval=15,
     return heart_rates
 
 #_______________________________________________________________________________#
+
