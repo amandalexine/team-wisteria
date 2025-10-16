@@ -161,7 +161,10 @@ def play_for_time(secs, final_volume_db ,freq=1000):
         has been determined from play_quieter_beep().
     """
     beep = create_sine_wave(freq, final_volume_db, duration=secs)
+    # Start playing the sound
     beep.play()  # Play indefinitely
+    # Keep the program running for the duration of playback
     time.sleep(secs)
     # Start playing the sound
     beep.stop()
+
