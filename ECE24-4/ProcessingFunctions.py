@@ -72,6 +72,12 @@ class DiscreteWaveletTransform:
     Uses Discrete Wavelet Transform (DWT) for noise reduction and signal cleaning.
     Decomposes the input signal into frequency components, applies thresholding,
     and reconstructs a denoised version of the signal.
+    
+    Destruct the signal into bounded basis waveforms to find contribution of wavelet coefficients
+    Extracts signal into low and high frequencies using lowpass and highpass filters
+    Captures both frequency and time domain information
+    DWT provides more accurate representation than DFT
+    Transform consists of two functions: data smoothing and weighted difference
     """
     
     def __init__(self, wavelet='haar', level=1):
@@ -545,6 +551,8 @@ def peakLocation(array,threshold = 1.9):
                 if value > max_value:
                     max_value = value
                     max_index = index
+
+            # finding actual peak in the previously high region
             peak_array.append((max_index, max_value))
             local_peak_array.clear()
             peak_found = False
@@ -552,7 +560,7 @@ def peakLocation(array,threshold = 1.9):
 
     return peak_array
 
-#peak rate calculation
+#peak rate calculation -> overall heart rate calculation
 def calculate_peak_rate(peak_tuples, samplerate=1000):
     sorted_peaks = sorted(peak_tuples, key=lambda x: x[0])
     
@@ -568,7 +576,7 @@ def calculate_peak_rate(peak_tuples, samplerate=1000):
     
     return heart_rate
 
-#peak rate calculation over interval
+#peak rate calculation over interval -> heart rate calculation for a specific interval
 def calculate_peak_rate_over_interval(peak_tuples, samplerate=1000, interval=15, tolerance=5): #need more testing data longer
     sorted_peaks = sorted(peak_tuples, key=lambda x: x[0])
     heart_rates = []

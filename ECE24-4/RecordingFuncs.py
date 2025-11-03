@@ -28,6 +28,11 @@ def print_tb(texts:str, message_box):
     message_box.config(text=texts)
 
 #------------------------------------------------SINE WAVE CREATION--------------------------
+# creates the sound wave for the test
+# Args: 
+# Freq: frequency (in Hz)
+# Db_volume: decibel ratio
+# Duration: how long the sound plays for (in seconds)
 def create_sine_wave(freq, db_volume, duration=1):
     linear_volume = db_to_linear(db_volume)
     sample_rate = 44100
@@ -38,10 +43,11 @@ def create_sine_wave(freq, db_volume, duration=1):
     sound = pygame.sndarray.make_sound(contiguous_wave)
     return sound
  
+# converts logarithmic db scale to linear scale
 def db_to_linear(db):
     return 10 ** (db / 20)
 
-
+# check that all the paths are created and if not, creates them
 def check_utilities():
     print(f"Checking utilities")
     # Check if all utilites are within the folder
@@ -67,12 +73,14 @@ def check_utilities():
     return 0
 
 # ------------------------------------------------SOUND FUNCTIONS------------------------------------------------------------
+# plays the created sine wave
 def play_beep_sound(volume_db):
     beep = create_sine_wave(1000, volume_db, duration=1)
     beep.play()
 
 
 # ------------------------------------------------BLUETOOTH FUNCTIONS------------------------------------------------------------
+# clear the list of bluetooth devices
 def clear_saved_list(mac_combobox, message_box, check):
     global mac_options
  
@@ -86,8 +94,10 @@ def clear_saved_list(mac_combobox, message_box, check):
         mac_options = []
         mac_combobox['values'] = []
 
+# save the bluetooth device to the bitalino
+# Arg: MAC address → unique hardware identifier similar to IP address 
 def save_to_existing_BITalino_bluetooth_devices(macOption):
-    # check if macOption already exsists in text file
+    # check if macOption already exists in text file
     with open('Utilities/Bitalino_Devices.txt', 'r') as file:
         for line in file:
             if line.strip():
@@ -117,6 +127,9 @@ def save_to_existing_BITalino_bluetooth_devices(macOption):
         with open('Utilities/Bitalino_Devices.txt', 'a') as file:
             file.write('\n' + saved_option_str)
  
+# populates MAC combobox (dropdown in the GUI) with the MAC addresses
+# saves the device so user can reconnect to it 
+# Arg: MAC combobox → dropdown with all the hardware devices 
 def get_existing_BITalino_bluetooth_devices(mac_combobox):
     global device_list
     file_path = 'Utilities/Bitalino_Devices.txt'
@@ -142,7 +155,13 @@ def get_existing_BITalino_bluetooth_devices(mac_combobox):
         mac_options.append(i[1])
        
     mac_combobox['values'] = mac_options
- 
+
+# finds nearby bluetooth devices and provide them in the dropdown
+# Args:
+# mac_combobox: dropdown menu with the devices
+# message_box: GUI text display 
+# mac_options: device options in the dropdown
+# returns early if bluetooth fails, otherwise scans for devices
 def bluetooth_scan(mac_combobox, message_box, mac_options):
     global device_list
     clear_saved_list(mac_combobox, message_box, 0)
@@ -163,7 +182,13 @@ def bluetooth_scan(mac_combobox, message_box, mac_options):
         print_tb("Scan complete", message_box)
     except Exception as e:
         print_tb("Scanning failed with error: " + str(e), message_box)
- 
+
+# checks for system compatibility and creates thread to start scanning devices
+# does not do the actual scanning
+# Args:
+# Mac_combobox: dropdown menu with the devices
+# Message_box: GUI text display 
+# returns early if bluetooth not support, otherwise runs thread
 def find_bluetooth_devices(mac_combobox, message_box):
     if platform.system() not in ["Windows", "Linux"]:
         print_tb("Your platform does not support bluetooth connections", message_box)
@@ -183,6 +208,12 @@ def checksubstr(str, substr):
         return False
     
 # Setup patient file
+# setup sheets for data collection and save patient data, test data, and baseline data into 
+# Args:
+# Name_entry: name that user entered when setting up the test
+# Age_entry: age that user entered when setting up the test
+# Contact_info_entry: contact info that user entered when setting up the test
+# Label: smaller text field in GUI
 def save_input(name_entry, age_entry, contact_info_entry, label):
     global filename
     global filepath
@@ -297,6 +328,9 @@ def save_input(name_entry, age_entry, contact_info_entry, label):
         label.config(text="Please enter all fields!")
 
 # Saving recording info options
+# Filepath: path to the excel workbook
+# Filename: name of the excel sheet in the workbook
+# Recording_info: data to save 
 def save_recording_info(filepath, filename, recording_info):
 
     workbook = openpyxl.load_workbook(filepath + filename)
@@ -344,7 +378,10 @@ def save_recording_info(filepath, filename, recording_info):
 
 
 # ------------------------------------------------BASELINE/TEST SEQUENCE FUNCTIONS-----------------------------------------------
-
+# starts the baseline recording thread
+# Args: 
+# Info: metadata on the recording session, including user fields
+# Controller: microcontroller used with test
 def next_baseline_function(info, controller):
     global device_list
     global app
@@ -358,7 +395,11 @@ def next_baseline_function(info, controller):
     save_recording_info(filepath, filename, recording_info)
     threading.Thread(target=run_baseline_thread, args=(filepath, filename, controller), daemon=True).start()
 
-
+# finds the baseline signals 
+# Args: 
+# Filepath: path to the excel workbook
+# Filename: name of the excel sheet in the workbook
+# Controller: microcontroller that the device is connected to (ESP32 or Bitalino)
 def run_baseline_thread(filepath, filename, controller):
 
     # Run different baseline sequence depending on the selected device type
@@ -369,12 +410,18 @@ def run_baseline_thread(filepath, filename, controller):
     
     controller.after(0, update_after_baseline, error, controller)
 
+# indicate status of baseline recording: success (so start testing) or failure 
+# Args: 
+# Error: result from running baseline thread, -1 on failure 
+# Controller: microcontroller
 def update_after_baseline(error, controller):
     if error == -1:
         controller.show_frame("ErrorPage")
     else:
         controller.show_frame("StartTestPage")
 
+# starts the testing thread
+# Arg: Controller: microcontroller used with test
 def next_test_sequence_function(controller):
     global device_list
     global app
@@ -384,6 +431,11 @@ def next_test_sequence_function(controller):
  
     threading.Thread(target=run_test_thread, args=(filepath, filename, controller), daemon=True).start()
 
+# runs the test thread to collect test data
+# Args: 
+# Filepath: path to the excel workbook
+# Filename: name of the excel sheet in the workbook
+# Controller: microcontroller that the device is connected to (ESP32 or Bitalino)
 def run_test_thread(filepath, filename, controller):
     global recording_info
 
@@ -395,6 +447,10 @@ def run_test_thread(filepath, filename, controller):
     
     controller.after(0, update_after_test, error, controller)
 
+# indicate status of testing: success and display results or failure
+# Args: 
+# Error: result from running baseline thread, -1 on failure 
+# Controller: microcontroller
 def update_after_test(error, controller):
     if error == -1:
         controller.show_frame("ErrorPage")
