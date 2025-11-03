@@ -20,6 +20,31 @@ device = 0
 
 # Saves the EMG, ECG, EDA signals in a TXT file
 def save_to_txt_file(txt_name, emg, ecg, eda):
+    """
+    Save EMG, ECG, and EDA signal data to a text file.
+
+    Parameters
+    ----------
+    txt_name : str
+        Path or filename of the output text file.
+    emg : list
+        List of EMG signal values.
+    ecg : list
+        List of ECG signal values.
+    eda : list
+        List of EDA signal values.
+
+    Returns
+    -------
+    None
+        Writes data directly to a file. Each line contains comma-separated EMG, ECG, and EDA values.
+
+    Side Effects
+    -------------
+    Creates or overwrites a text file on disk.
+    """
+
+    # init as 0
     data1, data2, data3 = 0,0,0
 
     with open(txt_name, 'w') as file:
@@ -35,6 +60,28 @@ def save_to_txt_file(txt_name, emg, ecg, eda):
 
 
 def save_to_patients_excel_file(baseline: bool, filename: str, emg, ecg, eda):
+    """
+    Save signal data (EMG, ECG, EDA) to a patient's Excel file.
+
+    Parameters
+    ----------
+    baseline : bool
+        True if writing to baseline data sheet; False for test data sheet.
+    filename : str
+        Path to the Excel file to update.
+    emg, ecg, eda : list
+        Lists containing EMG, ECG, and EDA samples.
+
+    Returns
+    -------
+    None
+        Writes values into Excel workbook.
+
+    Side Effects
+    -------------
+    Updates and saves an Excel workbook using openpyxl.
+    """
+
     # Write data to excel file
     print(f'in save_to_patients_excel_file: {filename}')
     workbook = openpyxl.load_workbook(filename)
@@ -48,6 +95,7 @@ def save_to_patients_excel_file(baseline: bool, filename: str, emg, ecg, eda):
 
     sheet = workbook[sheet_name]
 
+    # write in data (EMG, ECG, EDA) by column
     for column in range(3):
         for row_num, value in enumerate(data[column], start=2):
             sheet.cell(row=row_num, column=column + 1).value = value
@@ -56,6 +104,23 @@ def save_to_patients_excel_file(baseline: bool, filename: str, emg, ecg, eda):
     workbook.save(filename)
 
 def set_computer_volume(percentage):
+    """
+    Adjust system master volume using Windows audio API.
+
+    Parameters
+    ----------
+    percentage : float
+        Volume level as a percentage (0-100).
+
+    Returns
+    -------
+    None
+
+    Side Effects
+    -------------
+    Changes the master output volume of the host computer.
+    """
+
     devices = AudioUtilities.GetSpeakers()
     interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
     volume = interface.QueryInterface(IAudioEndpointVolume)
@@ -64,17 +129,55 @@ def set_computer_volume(percentage):
     volume.SetMasterVolumeLevelScalar(percentage/100, None)  # Set volume to a percentage
 
 def play_wavefile(sound, duration):
+    """
+    Play a WAV sound file for a fixed duration.
+
+    Parameters
+    ----------
+    sound : pygame.mixer.Sound
+        Preloaded sound object to play.
+    duration : float
+        Playback duration in seconds.
+
+    Returns
+    -------
+    None
+    """
+
     start_time = time.time()
 
     while(1):
         sound.play()
         time.sleep(1)
         sound.stop()
+
+        # end at the specified duration
         if time.time() - start_time > duration:
             sound.stop()
             break
 
 def play_sound(duration, frequency, interval, di, final_volume_db=-30):
+    """
+    Generate or play sound with incremental volume changes.
+
+    Parameters
+    ----------
+    duration : float
+        Total duration of playback (s).
+    frequency : int or str
+        Frequency (Hz) for generated tone or filename for .wav playback.
+    interval : float
+        Interval between volume increases (s).
+    di : float
+        dB increment at each step.
+    final_volume_db : float, optional
+        Starting decibel level (default -30 dB).
+
+    Returns
+    -------
+    None
+    """
+
     number_of_db_increases = int(duration/interval)
 
     if type(frequency) == str: # Play .wav file
@@ -93,12 +196,33 @@ def play_sound(duration, frequency, interval, di, final_volume_db=-30):
         # --------------------------------------------------------------------
 
 def grab_signal(samplingRate:int, duration:int, emg_vals, ecg_vals, eda_vals, channel = [True, True, True]):
+    """
+    Acquire EMG, ECG, and EDA signals from a connected BITalino or ESP32 device.
+
+    Parameters
+    ----------
+    samplingRate : int
+        Sampling rate in Hz.
+    duration : int
+        Duration of acquisition in seconds.
+    emg_vals, ecg_vals, eda_vals : multiprocessing.Manager().list
+        Shared lists to store sampled data.
+    channel : list of bool
+        Enables or disables each channel [EMG, ECG, EDA].
+
+    Returns
+    -------
+    None
+    """
+
     device.start(samplingRate, [0,1,2,3,4,5])
     start_time = time.time()
     
+    # grad data for specified duration of test
     while (time.time() - start_time) < duration:
         data = device.read(samplingRate) # <--- Returns n samples in one second (n = samplingRate)
         for i in data:
+            # if the channel is enabled, add in data, if not use 1 as a placeholder
             if channel[0] == True:
                 emg_vals.append(i[5])
             if channel[1] == True:
@@ -121,6 +245,27 @@ def grab_signal(samplingRate:int, duration:int, emg_vals, ecg_vals, eda_vals, ch
     device.close()
 
 def live_graphing(ready_event, samplingRate, emg_vals, ecg_vals, eda_vals, channel, duration):
+    """
+    Display real-time graphing of signals using Matplotlib animation.
+
+    Parameters
+    ----------
+    ready_event : multiprocessing.Event
+        Event flag signaling readiness to start graphing.
+    samplingRate : int
+        Sampling rate in Hz.
+    emg_vals, ecg_vals, eda_vals : multiprocessing.Manager().list
+        Shared data arrays for EMG, ECG, and EDA.
+    channel : list of bool
+        Indicates which channels are enabled.
+    duration : float
+        Total graphing duration in seconds.
+
+    Returns
+    -------
+    None
+    """
+
     plt.style.use('fivethirtyeight')
 
     x_vals = []
@@ -179,6 +324,7 @@ def live_graphing(ready_event, samplingRate, emg_vals, ecg_vals, eda_vals, chann
             lines.append(line)  # Append the created line to the list of lines
 
     def animate(i):
+        # stop if duration is up
         if(time.time() - start_time) >= duration:
             print(f'Time: {time.time()-start_time}')
             ani.event_source.stop()
@@ -252,10 +398,31 @@ def live_graphing(ready_event, samplingRate, emg_vals, ecg_vals, eda_vals, chann
     plt.show()
 
 def run_baseline_sequence_ESP32(filepath:str, filename:str, recording_info, controller):
+    """
+    Run the baseline signal collection sequence using an ESP32 device (Fern box).
+
+    Parameters
+    ----------
+    filepath : str
+        Directory path for saving results.
+    filename : str
+        Patient Excel filename.
+    recording_info : dict
+        Configuration including sample rate, duration, audio, and channel info.
+    controller : object
+        GUI controller with page frame references.
+
+    Returns
+    -------
+    int
+        -1 if failure occurs, else None on success.
+    """
+    
     global device
 
     filename = filepath + filename
 
+    # get parameters for the test
     macAddress = recording_info["macAddress"]
     sample_rate = recording_info["sample_rate"]
     print(f"Sampling rate: {sample_rate}")
@@ -311,8 +478,29 @@ def run_baseline_sequence_ESP32(filepath:str, filename:str, recording_info, cont
 
 
 def run_test_sequence_ESP32(filepath, filename, db_volume, recording_info, controller):
+    """
+    Execute test sequence using ESP32 device (fern box).
+
+    Parameters
+    ----------
+    filepath, filename : str
+        Filepath and patient file for saving results.
+    db_volume : float
+        Initial playback volume in decibels.
+    recording_info : dict
+        Test configuration (duration, audio, timing, etc.).
+    controller : object
+        GUI controller for status display.
+
+    Returns
+    -------
+    int
+        -1 on error, otherwise None.
+    """
+
     global device
 
+    # get test parameters
     macAddress = recording_info["macAddress"]
     sample_rate = recording_info["sample_rate"]
     duration = recording_info["duration"]
@@ -377,10 +565,29 @@ def run_test_sequence_ESP32(filepath, filename, db_volume, recording_info, contr
 
 
 def run_baseline_sequence_bitalino(filepath:str, filename:str, recording_info, controller):
+    """
+    Collect baseline signals using a BITalino
+
+    Parameters
+    ----------
+    filepath, filename : str
+        Output directory and file for saving data.
+    recording_info : dict
+        Contains sample rate, duration, and signal enable info.
+    controller : object
+        GUI controller instance.
+
+    Returns
+    -------
+    int
+        -1 if device connection fails or error occurs.
+    """
+
     global device
 
     filename = filepath + filename
 
+    # get test parameters
     macAddress = recording_info["macAddress"]
     sample_rate = recording_info["sample_rate"]
     duration = recording_info["duration"]
@@ -459,8 +666,29 @@ def run_baseline_sequence_bitalino(filepath:str, filename:str, recording_info, c
         
 
 def run_test_sequence_bitalino(filepath, filename, db_volume, recording_info, controller):
+    """
+    Run test sequence with BITalino device and audio/ frequency playing.
+
+    Parameters
+    ----------
+    filepath, filename : str
+        Output directory and file for saving results.
+    db_volume : float
+        Starting playback volume in dB.
+    recording_info : dict
+        Test configuration parameters.
+    controller : object
+        GUI controller reference.
+
+    Returns
+    -------
+    int
+        -1 on failure; None on success.
+    """
+
     global device
 
+    # get test parameters
     macAddress = recording_info["macAddress"]
     sample_rate = recording_info["sample_rate"]
     duration = recording_info["duration"]
@@ -468,7 +696,6 @@ def run_test_sequence_bitalino(filepath, filename, db_volume, recording_info, co
     time_option = recording_info["time_option"]
     di_option = recording_info["di_option"]
     signals = recording_info["signals"]
-
 
     filename = filepath + filename
     # Attempt to connect with device
@@ -546,6 +773,7 @@ def run_test_sequence_bitalino(filepath, filename, db_volume, recording_info, co
 
 
 # TESTING BLOCK
+# this isn't an actual main, it's just for testing this script by itslef
 if __name__ == "__main__":
     # TEST SIGNAL GRAB FUNCTION.
     # code here runs only when the file is executed directly, not when imported
