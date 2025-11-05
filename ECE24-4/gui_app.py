@@ -11,115 +11,141 @@ from PIL import Image, ImageTk
 
 from RecordingFuncs import *
 
+# Global variables for selected device and recording parameters
 device_option = "BITalino"
 recording_info = {}
- 
+
+# Improves display scaling on high-DPI monitors (Windows)
 ctypes.windll.shcore.SetProcessDpiAwareness(1)
 
+
+# ============================
+# MAIN APPLICATION CLASS
+# ============================
 class MainApp(tk.Tk):
+    """Main window class that initializes the full-screen Tkinter GUI 
+    and manages navigation between different pages (frames)."""
     def __init__(self):
         super().__init__()
 
+        # Window setup
         self.title("Noise Sensitivity Test")
-        self.state('zoomed')
+        self.state('zoomed')  # Maximizes window
         self.iconbitmap('Utilities/ss_logo.ico')
 
+        # Configure grid for resizing
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        self.frames = {} 
+        self.frames = {}  # Holds references to all page frames
 
+        # Default frame: Error page (in case initialization fails)
         page_name = ErrorPage.__name__
         frame = ErrorPage(parent=self, controller=self)
         self.frames[page_name] = frame
         frame.grid(row=0, column=0, sticky="nsew")
 
+        # Check for required utility files before proceeding
         if check_utilities() == -1:
             self.frames['ErrorPage'].set_error_message("Check that all utilities are present, including logos and images")
             self.show_frame("ErrorPage")
         else:
-            # Create all of the pages
-            for F in (StartPage, DeviceConnectionPage, VolumePage, ParameterPage, InstructionsPage, TestPrepPage, LoadingPage, StartTestPage, ResultsPage, ShapPage, GraphPage, StatsResultsPage):
+            # Initialize and store all page frames
+            for F in (
+                StartPage, DeviceConnectionPage, VolumePage, ParameterPage,
+                InstructionsPage, TestPrepPage, LoadingPage, StartTestPage,
+                ResultsPage, ShapPage, GraphPage, StatsResultsPage
+            ):
                 page_name = F.__name__
                 frame = F(parent=self, controller=self)
                 self.frames[page_name] = frame
                 frame.grid(row=0, column=0, sticky="nsew")
 
+            # Show initial start page
             self.show_frame("StartPage")
 
     def show_frame(self, page_name):
-
+        """Raises the given frame (page) to the top of the GUI."""
         frame = self.frames[page_name]
         frame.focus_set()
         frame.tkraise()
 
-# Class for the error page
+
+# ============================
+# ERROR PAGE CLASS
+# ============================
 class ErrorPage(ttk.Frame):
+    """Displayed when essential resources or configurations are missing."""
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
+        # Layout setup
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)  
 
         frame = ttk.Frame(self)
         frame.grid(row=0, column=0, sticky="nsew", padx=7, pady=7)
-
-        frame.grid_rowconfigure(0, weight=1)  
-        frame.grid_rowconfigure(1, weight=0) 
-        frame.grid_rowconfigure(2, weight=1) 
-        frame.grid_columnconfigure(0, weight=1) 
-
-        message_label = ttk.Label(frame, text="An error has occurred, please restart the program.", font=("Calibri Light", 18, 'bold'), justify="center")
-        message_label.grid(row=0, column=0, pady=10, sticky="s") 
-
-        self.detailed_message = ttk.Label(frame, text="", font=("Calibri Light", 12), justify="center")
-        self.detailed_message.grid(row=1, column=0, pady=10) 
-
-        restart_button = ctk.CTkButton(frame, text="Exit Program", command=lambda: self.controller.destroy())
-        restart_button.grid(row=2, column=0, pady=10, sticky="n") 
-
-    # Set a detailed error message
-    def set_error_message(self, title):
-       self.detailed_message.config(text=title)
-
-
-# Start page class
-class StartPage(ttk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        self.controller = controller
-
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)  
-
-        frame = ttk.Frame(self)
-        frame.grid(row=0, column=0, sticky="nsew", padx=7, pady=7)
-
 
         frame.grid_rowconfigure(0, weight=1)
         frame.grid_rowconfigure(1, weight=0)
-        frame.grid_rowconfigure(2, weight=0)
-        frame.grid_rowconfigure(3, weight=0)
-        frame.grid_rowconfigure(4, weight=0)
-        frame.grid_rowconfigure(5, weight=0)
-        frame.grid_rowconfigure(6, weight=1)
-        frame.grid_columnconfigure(0, weight=1) 
-        frame.grid_columnconfigure(1, weight=1) 
-        frame.grid_columnconfigure(2, weight=1) 
+        frame.grid_rowconfigure(2, weight=1)
+        frame.grid_columnconfigure(0, weight=1)
 
+        # Error message label
+        message_label = ttk.Label(
+            frame, text="An error has occurred, please restart the program.",
+            font=("Calibri Light", 18, 'bold'), justify="center"
+        )
+        message_label.grid(row=0, column=0, pady=10, sticky="s")
+
+        # Detailed error text area
+        self.detailed_message = ttk.Label(frame, text="", font=("Calibri Light", 12), justify="center")
+        self.detailed_message.grid(row=1, column=0, pady=10)
+
+        # Exit button
+        restart_button = ctk.CTkButton(frame, text="Exit Program", command=lambda: self.controller.destroy())
+        restart_button.grid(row=2, column=0, pady=10, sticky="n")
+
+    def set_error_message(self, title):
+        """Sets the detailed error message text."""
+        self.detailed_message.config(text=title)
+
+
+# ============================
+# START PAGE CLASS
+# ============================
+class StartPage(ttk.Frame):
+    """First page of the application where the participant enters basic information."""
+    def __init__(self, parent, controller):
+        super().__init__(parent)
+        self.controller = controller
+
+        # Frame layout
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+        frame = ttk.Frame(self)
+        frame.grid(row=0, column=0, sticky="nsew", padx=7, pady=7)
+
+        # Configure internal grid
+        for i in range(7):
+            frame.grid_rowconfigure(i, weight=(1 if i in [0,6] else 0))
+        for j in range(3):
+            frame.grid_columnconfigure(j, weight=1)
+
+        # Logo
         img_path = "Utilities/sound_sense_logo.png"
         img = tk.PhotoImage(file=img_path)
         img = img.subsample(2, 2)
-                            
         img_label = ttk.Label(frame, image=img, anchor="center")
         img_label.image = img
-        img_label.grid(row=0, column=0, columnspan=3, sticky="s") 
+        img_label.grid(row=0, column=0, columnspan=3, sticky="s")
 
-        
+        # Instruction text
         required_label = ttk.Label(frame, text="*Required Information", font=("Calibri Light", 14))
         required_label.grid(row=1, column=0, columnspan=3, pady=15)
 
+        # Form fields
         name_label = ttk.Label(frame, text="Subject Reference Number *:", font=("Calibri Light", 14))
         name_label.grid(row=2, column=0, padx=5, pady=5, sticky="e")
         name_entry = ttk.Entry(frame)
@@ -135,95 +161,100 @@ class StartPage(ttk.Frame):
         contact_info_entry = ttk.Entry(frame)
         contact_info_entry.grid(row=4, column=1, padx=5, pady=5, sticky="ew")
 
-        status_label = ttk.Label(frame, text="", anchor="center", font=("Calibri Light", 12) , foreground="red")
+        # Error message area
+        status_label = ttk.Label(frame, text="", anchor="center", font=("Calibri Light", 12), foreground="red")
         status_label.grid(row=5, column=0, columnspan=3, pady=15)
-    
-        # Ensure user input is valid
+
+        # Validation function for user input
         def validate_entries():
             if name_entry.get().strip():
-                save_input(name_entry,age_entry,contact_info_entry,status_label)
+                # Save user input and move forward
+                save_input(name_entry, age_entry, contact_info_entry, status_label)
                 self.next_page()
             else:
+                # Highlight missing required field
                 status_label.config(text="Subject Reference Number is required.", font=("Calibri Light", 14))
-    
-        next_button = ctk.CTkButton(frame, text="Next", command=lambda:validate_entries())
+
+        # Navigation button
+        next_button = ctk.CTkButton(frame, text="Next", command=validate_entries)
         next_button.grid(row=6, column=0, columnspan=3, pady=30, sticky="n")
 
-
     def next_page(self):
+        """Navigate to the device connection page."""
         self.controller.show_frame("DeviceConnectionPage")
 
 
-# Device Connection Instruction Page Class
+# ============================
+# DEVICE CONNECTION PAGE
+# ============================
 class DeviceConnectionPage(ttk.Frame):
+    """Displays instructions for connecting to either a BITalino or Fern Bioelectric device."""
     def __init__(self, parent, controller):
         super().__init__(parent)
         self.controller = controller
 
+        # Main layout configuration
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
-
         self.frame = ttk.Frame(self)
         self.frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
 
-        self.frame.grid_rowconfigure(0, weight=0)
-        self.frame.grid_rowconfigure(1, weight=0)
-        self.frame.grid_rowconfigure(2, weight=0)
-        self.frame.grid_rowconfigure(3, weight=0)
-        self.frame.grid_rowconfigure(4, weight=0)
-        self.frame.grid_rowconfigure(5, weight=1)
+        # Grid settings for dynamic resizing
+        for i in range(6):
+            self.frame.grid_rowconfigure(i, weight=(1 if i == 5 else 0))
+        for j in [0, 2]:
+            self.frame.grid_columnconfigure(j, weight=1)
 
-        self.frame.grid_columnconfigure(0, weight=1)
-        self.frame.grid_columnconfigure(1, weight=0)
-        self.frame.grid_columnconfigure(2, weight=1)
-
-        # ---------- BANNER -----------
-        banner = tk.Frame(self.frame, height=150)
-        banner.config(bg='lightblue')
-        banner.grid(row=0, column=0, columnspan=5, sticky='nsew', pady=(0, 20), padx=0)
+        # ---------- HEADER / BANNER ----------
+        banner = tk.Frame(self.frame, height=150, bg='lightblue')
+        banner.grid(row=0, column=0, columnspan=5, sticky='nsew', pady=(0, 20))
 
         back_button = ctk.CTkButton(banner, text="⇦  Back", width=75, height=30, command=self.last_page)
         back_button.pack(side=tk.LEFT, padx=30, pady=10)
 
-        instruction_title_label = tk.Label(banner, text="Connecting Device Instructions", font=("Calibri Light", 24, 'bold'), justify="center")
-        instruction_title_label.config(bg='lightblue')
+        instruction_title_label = tk.Label(
+            banner, text="Connecting Device Instructions",
+            font=("Calibri Light", 24, 'bold'), bg='lightblue', justify="center"
+        )
         instruction_title_label.pack(side=tk.LEFT, expand=True, fill="x", padx=30, pady=30)
 
         next_button = ctk.CTkButton(banner, text="Next  ⇨", width=75, height=30, command=self.next_page)
         next_button.pack(side=tk.RIGHT, padx=30, pady=10)
 
-        instruction_subtitle_label = ttk.Label(self.frame, text="Please select the bioelectric signal recording device you would like to use. \nThe device's instructions will be displayed below.", font=("Calibri Light", 14), justify="center")
+        # Subtitle and device selection
+        instruction_subtitle_label = ttk.Label(
+            self.frame,
+            text=("Please select the bioelectric signal recording device you would like to use.\n"
+                  "The device's instructions will be displayed below."),
+            font=("Calibri Light", 14), justify="center"
+        )
         instruction_subtitle_label.grid(row=1, column=0, pady=5, padx=10, sticky="ns", columnspan=3)
 
-        instruction_subtitle_label2 = ttk.Label(self.frame, text="Press 'Next' when complete.", font=("Calibri Light", 14))
+        instruction_subtitle_label2 = ttk.Label(
+            self.frame, text="Press 'Next' when complete.",
+            font=("Calibri Light", 14)
+        )
         instruction_subtitle_label2.grid(row=2, column=0, pady=5, padx=10, sticky="ns", columnspan=3)
 
+        # --- Device selection radio buttons ---
         self.device_var = tk.StringVar(value="BITalino")
         selection_frame = ttk.Frame(self.frame)
         selection_frame.grid_columnconfigure(0, weight=1)
         selection_frame.grid_columnconfigure(2, weight=1)
         selection_frame.grid(row=3, column=1, pady=5, padx=10, sticky="nsew")
-        bitalino_radio = ttk.Radiobutton(selection_frame, text="BITalino", variable=self.device_var,
-                                         value="BITalino", command=self.update_instructions)
-        bitalino_radio.grid(row=0, column=0, pady=5, padx=10, sticky="e")
 
-        or_label = ttk.Label(selection_frame, text="OR", font=("Calibri Light", 14, 'bold'))
-        or_label.grid(row=0, column=1, pady=5, padx=10)
+        ttk.Radiobutton(selection_frame, text="BITalino", variable=self.device_var,
+                        value="BITalino", command=self.update_instructions).grid(row=0, column=0, pady=5, sticky="e")
+        ttk.Label(selection_frame, text="OR", font=("Calibri Light", 14, 'bold')).grid(row=0, column=1)
+        ttk.Radiobutton(selection_frame, text="Fern Bioelectric Box", variable=self.device_var,
+                        value="ESP32", command=self.update_instructions).grid(row=0, column=2, pady=5, sticky="w")
 
-        ESP32_radio = ttk.Radiobutton(selection_frame, text="Fern Bioelectric Box", variable=self.device_var,
-                                      value="ESP32", command=self.update_instructions)
-        ESP32_radio.grid(row=0, column=2, pady=5, padx=10, sticky="w")
-
-
-
+        # --- BITalino instruction section ---
+        # (Images and text shown if BITalino is selected)
         self.bitalino_frame = ttk.LabelFrame(self.frame, text="BITalino (r)evolution Board")
         self.bitalino_frame.grid(row=4, column=1, pady=10, padx=30, sticky="nsew")
-        self.bitalino_frame.grid_columnconfigure(1, weight=1)
-        self.bitalino_frame.grid_rowconfigure(3, weight=1)
 
-        bitalino_title_label = ttk.Label(self.bitalino_frame, text="If using BITalino for Bioelectric Signal Collection:", font=("Calibri Light", 14))
-        bitalino_title_label.grid(row=1, column=1, pady=10, padx=20, sticky="ns")
-
+        # Instruction text and visuals for BITalino setup
         bitalino_instruction_text = (
             "   1. Locate the BITalino (r)evolution Board as seen in the images below\n"
             "   2. Turn on BITalino by flipping the on/off switch on the device. Make sure the power light is on.\n"
@@ -231,32 +262,24 @@ class DeviceConnectionPage(ttk.Frame):
             "   3. If this is your first time using the BITalino device:\n"
             "         a. Navigate to the computer's settings, and select 'Bluetooth & devices' → 'Add Device' → 'Bluetooth'\n"
             "         b. Wait for the BITalino PCB to appear and click 'connect'. Enter password '1234' if prompted.\n"
-            "   4. Connect the wires labled 'ECG', 'EMG', and 'EDA' to the appropriate side ports, as seen below."
+            "   4. Connect the wires labeled 'ECG', 'EMG', and 'EDA' to the appropriate side ports, as seen below."
         )
+        ttk.Label(self.bitalino_frame, text=bitalino_instruction_text, font=("Calibri Light", 12)).grid(row=2, column=1, pady=10, padx=10)
 
-        bitalino_instruction_label = ttk.Label(self.bitalino_frame, text=bitalino_instruction_text, font=("Calibri Light", 12))
-        bitalino_instruction_label.grid(row=2, column=1, pady=10, padx=10, sticky="ns")
-
+        # Load BITalino images
         self.bitalino_img_frame = ttk.Frame(self.bitalino_frame)
-        self.bitalino_img_frame.grid(row=3, column=1, sticky="n", pady=5, padx=30)
-
-        self.BITalino_front = Image.open("Utilities/Bitalino_front.png")
-        self.BITalino_front = self.BITalino_front.resize((540, 360), Image.LANCZOS) 
+        self.bitalino_img_frame.grid(row=3, column=1, pady=5, padx=30)
+        self.BITalino_front = Image.open("Utilities/Bitalino_front.png").resize((540, 360), Image.LANCZOS)
         self.bitalino_front_img = ImageTk.PhotoImage(self.BITalino_front)
-        ttk.Label(self.bitalino_img_frame, image=self.bitalino_front_img, anchor="center").pack(side=tk.LEFT, padx=5, pady=5)
+        ttk.Label(self.bitalino_img_frame, image=self.bitalino_front_img).pack(side=tk.LEFT, padx=5)
 
-        self.BITalino_back= Image.open("Utilities/Bitalino_back.png")
-        self.BITalino_back = self.BITalino_back.resize((540, 360), Image.LANCZOS)
+        self.BITalino_back = Image.open("Utilities/Bitalino_back.png").resize((540, 360), Image.LANCZOS)
         self.bitalino_back_img = ImageTk.PhotoImage(self.BITalino_back)
-        ttk.Label(self.bitalino_img_frame, image=self.bitalino_back_img, anchor="center").pack(side=tk.RIGHT, padx=5, pady=5)
+        ttk.Label(self.bitalino_img_frame, image=self.bitalino_back_img).pack(side=tk.RIGHT, padx=5)
 
+        # --- ESP32 (Fern Bioelectric Box) instructions ---
         self.ESP32_frame = ttk.LabelFrame(self.frame, text="Fern Bioelectric Box")
         self.ESP32_frame.grid(row=4, column=1, pady=10, padx=30, sticky="nsew")
-        self.ESP32_frame.grid_columnconfigure(1, weight=1)
-        self.ESP32_frame.grid_rowconfigure(3, weight=1)
-
-        ESP32_title_label = ttk.Label(self.ESP32_frame, text="If using the Fern Bioelectric Box for Signal Collection:", font=("Calibri Light", 14))
-        ESP32_title_label.grid(row=1, column=1, pady=10, padx=20, sticky="ns")
 
         ESP32_instruction_text = (
             "   1. Locate the Fern Bioelectric Box and turn on by flipping the on/off switch as seen below.\n"
@@ -267,292 +290,46 @@ class DeviceConnectionPage(ttk.Frame):
             "   4. Connect the wires labeled 'ECG,' 'EMG,' and 'EDA' to the appropriate side ports, as seen below.\n"
             "   5. Let device sit on for 3 minutes before starting test."
         )
+        ttk.Label(self.ESP32_frame, text=ESP32_instruction_text, font=("Calibri Light", 12)).grid(row=2, column=1, pady=10, padx=10)
 
-        ESP32_instruction_label = ttk.Label(self.ESP32_frame, text=ESP32_instruction_text, font=("Calibri Light", 12))
-        ESP32_instruction_label.grid(row=2, column=1, pady=10, padx=10, sticky="ns")
-
+        # Load ESP32 visuals
         self.ESP32_img_frame = ttk.Frame(self.ESP32_frame)
-        self.ESP32_img_frame.grid(row=3, column=1, sticky="n", pady=5, padx=30)
-
-        self.ESP32_front = Image.open("Utilities/ESP32_front.png")
-        self.ESP32_front = self.ESP32_front.resize((540, 360), Image.LANCZOS) 
+        self.ESP32_img_frame.grid(row=3, column=1, pady=5, padx=30)
+        self.ESP32_front = Image.open("Utilities/ESP32_front.png").resize((540, 360), Image.LANCZOS)
         self.ESP32_front_img = ImageTk.PhotoImage(self.ESP32_front)
-        ttk.Label(self.ESP32_img_frame, image=self.ESP32_front_img, anchor="center").pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.ESP32_back= Image.open("Utilities/ESP32_back.png")
-        self.ESP32_back = self.ESP32_back.resize((540, 360), Image.LANCZOS)
+        ttk.Label(self.ESP32_img_frame, image=self.ESP32_front_img).pack(side=tk.LEFT, padx=5)
+        self.ESP32_back = Image.open("Utilities/ESP32_back.png").resize((540, 360), Image.LANCZOS)
         self.ESP32_back_img = ImageTk.PhotoImage(self.ESP32_back)
-        ttk.Label(self.ESP32_img_frame, image=self.ESP32_back_img, anchor="center").pack(side=tk.RIGHT, padx=5, pady=5)
+        ttk.Label(self.ESP32_img_frame, image=self.ESP32_back_img).pack(side=tk.RIGHT, padx=5)
 
+        # Hide ESP32 section by default
         self.ESP32_frame.grid_remove()
 
-    # Update instruction page with current device selection
     def update_instructions(self):
-        """Called when the device selection changes."""
+        """Switches instruction frame based on device selection."""
         device = self.device_var.get()
         if device == "BITalino":
             self.bitalino_frame.grid()
-            self.ESP32_frame.grid_remove()  
+            self.ESP32_frame.grid_remove()
         else:
-            self.ESP32_frame.grid() 
+            self.ESP32_frame.grid()
             self.bitalino_frame.grid_remove()
 
     def next_page(self):
+        """Save selected device and navigate to next configuration page."""
         global device_option
-
         device_option = self.device_var.get()
         print(f"device option: {device_option}")
 
+        # Update dependent frames with current device selection
         self.controller.frames["InstructionsPage"].update_device_instructions(device_option)
         self.controller.frames["ParameterPage"].update_mac_options()
         self.controller.show_frame("ParameterPage")
-    
+
     def last_page(self):
+        """Return to StartPage."""
         self.controller.show_frame("StartPage")
 
-
-
-# Test parameter input page
-class ParameterPage(ttk.Frame):
-    def __init__(self, parent, controller):
-        super().__init__(parent)
-        global recording_info
-        global device_option
-        self.controller = controller
-
-        self.grid_rowconfigure(0, weight=1)
-        self.grid_columnconfigure(0, weight=1)  
-
-        frame = ttk.Frame(self)
-        frame.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
-
-        frame.grid_rowconfigure(0, weight=0)
-        frame.grid_rowconfigure(22, weight=1)
-        frame.grid_columnconfigure(0, weight=1) 
-        frame.grid_columnconfigure(1, weight=1)
-        
-        frame.grid_columnconfigure(2, weight=0)
-        frame.grid_columnconfigure(3, weight=1)
-        frame.grid_columnconfigure(4, weight=0)
-
-        frame.grid_columnconfigure(5, weight=1)
-        frame.grid_columnconfigure(6, weight=1)
-        frame.grid_columnconfigure(7, weight=1)
-
-        # ---------- BANNER -----------
-        banner = tk.Frame(frame, height=150)
-        banner.config(bg='lightblue')
-        banner.grid(row=0, column=0, columnspan=8, sticky='nsew', pady=(0, 20), padx=0)
-
-        back_button = ctk.CTkButton(banner, text="⇦  Back", width=75, height=30, command=self.last_page)
-        back_button.pack(side=tk.LEFT, padx=30, pady=10)
-
-        title_label = tk.Label(banner, text="Enter Recording Parameters", font=("Calibri Light", 24, 'bold'), justify="center")
-        title_label.config(bg='lightblue')
-        title_label.pack(side=tk.LEFT, expand=True, fill="x", padx=30, pady=30)
-
-        next_button = ctk.CTkButton(banner, text="Next  ⇨", width=75, height=30, command=lambda:validate_entries())
-        next_button.pack(side=tk.RIGHT, padx=30, pady=10)
-    
-    #-----------------------WAV FILE ---------
-        directory = "audio_files"
-        wav_files=[file for file in os.listdir(directory) if file.endswith('.wav')]
-    
-        wav_label = ttk.Label(frame, text=f"Select a Wav File (leave empty if none):", font=("Calibri Light", 12))
-        wav_label.grid(row=1, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-    
-        wav_entry = ttk.Combobox(frame, values=wav_files, state="readonly")
-        wav_entry.grid(row=2, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-    
-    #-------------FREQUENCY------------
-        fq_label = ttk.Label(frame, text="Sound Frequency (in Hz):", font=("Calibri Light", 12))
-        fq_label.grid(row=3, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-        fq_entry = ttk.Entry(master=frame)
-        fq_entry.grid(row=4, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-    
-    #-----------Sound increment (in dB)-----------------
-
-        di_label=ttk.Label(frame,text="Sound increment (in dB) (leave empty for default value of 5 dB):", font=("Calibri Light", 12))
-        di_label.grid(row=5, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-        di_entry=ttk.Entry(master=frame)
-        di_entry.grid(row=6, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-
-    #-----------Time increment----------------
-        ti_label=ttk.Label(frame,text="Time increment (in seconds) (leave empty for default value of 15 seconds):", font=("Calibri Light", 12))
-        ti_label.grid(row=7, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-        ti_entry=ttk.Entry(master=frame)
-        ti_entry.grid(row=8, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-
-        sample_rate_options = [100, 1000]
-
-        self.sr_label = ttk.Label(frame, text="Sampling Rate (in Hz):", font=("Calibri Light", 12))
-        self.sr_label.grid(row=9, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-        self.sr_combobox = ttk.Combobox(frame, values=sample_rate_options, state="readonly")
-        self.sr_combobox.grid(row=10, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-    
-
-        duration_options = [15,30,45,60,75,90,105,120]
-        duration_label = ttk.Label(frame, text="Duration (in seconds):", font=("Calibri Light", 12))
-        duration_label.grid(row=11, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-        duration_entry = ttk.Combobox(frame, values=duration_options, state="readonly")
-        duration_entry.grid(row=12, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-    
-    
-    #------------------------CHECK BOX----------------------------------
-        signal_label = ttk.Label(frame, text="Select signals to be recorded for analysis:", font=("Calibri Light", 12))
-        signal_label.grid(row=13, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-
-        options_frame = ttk.Frame(frame)
-        options_frame.grid(row=14, column=2, columnspan=2)
-        
-        emg = tk.IntVar()
-        ecg = tk.IntVar()
-        eda = tk.IntVar()
-
-        op1 = ttk.Checkbutton(options_frame, text="EMG", variable=emg, onvalue=1, offvalue=0)
-        op1.pack(side=tk.LEFT, padx=15, pady=10)
-        op2 = ttk.Checkbutton(options_frame, text="ECG", variable=ecg, onvalue=1, offvalue=0)
-        op2.pack(side=tk.LEFT, padx=15, pady=10)
-        op3 = ttk.Checkbutton(options_frame, text="EDA", variable=eda, onvalue=1, offvalue=0)
-        op3.pack(side=tk.LEFT, padx=15, pady=10)
-    
-    #-------------------
-        self.mac_label = ttk.Label(frame, text="Select a BITalino:", font=("Calibri Light", 12))
-        self.mac_label.grid(row=17, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-        self.mac_combobox = ttk.Combobox(frame, values=mac_options, state='normal', takefocus=False)
-        self.mac_combobox.grid(row=18, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-
-
-        get_existing_BITalino_bluetooth_devices(self.mac_combobox)
-        self.mac_button = ctk.CTkButton(frame, text="Scan for Bluetooth devices", fg_color="darkred", hover_color="red", text_color="white", corner_radius=0, font=("Calibri Light", 13, "italic"),
-                                                                    command=lambda:[find_bluetooth_devices(self.mac_combobox, message_box)])
-        self.mac_button.grid(row=19, column=2, padx=5, pady=5, sticky="ew", columnspan=2)
-    
-        self.clear_button = ctk.CTkButton(frame, text="Clear current list", fg_color="darkred", hover_color="red", text_color="white", corner_radius=0,  font=("Calibri Light", 13, "italic"),
-                                                                    command=lambda:clear_saved_list(self.mac_combobox, message_box,1))
-        self.clear_button.grid(row=19, column=4, padx=5, pady=5, sticky="ew", columnspan=1)
-    
-        status_label = ttk.Label(frame, text="", anchor="center")
-        status_label.grid(row=20, column=2, padx=5, pady=5, sticky="ew", columnspan=4)
-    
-        def validate_entries(): 
-            try:
-                duration = int(duration_entry.get())
-                if device_option == "BITalino":
-                    sample_rate = int(self.sr_combobox.get())
-                else:
-                    sample_rate = 130
-                
-                if not di_entry.get() == '':
-                    try:
-                        di_option = int(di_entry.get())
-                    except:
-                        message_box.config(text="Decibel increment entry must be a valid integer")
-                        return 
-                else:
-                    di_option = 5
-
-
-                if not ti_entry.get() == '':
-                    try:
-                        time_option = int(ti_entry.get())
-                    except:
-                        message_box.config(text="Time interval entry must be a valid integer")
-                        return
-                else: # if the time interval entry is empty, default to a value of 15 seconds
-                    time_option = 15
-
-                if time_option > duration:
-                    message_box.config(text="The time interval cannot be larger than the duration")
-                    return
-                
-
-                # Check to see which signals to graph
-                signals = []
-                if emg.get() == 1:
-                    signals.append(True)
-                else:
-                    signals.append(False)
-                if ecg.get() == 1:
-                    signals.append(True)
-                else:
-                    signals.append(False)
-                if eda.get() == 1:
-                    signals.append(True)
-                else:
-                    signals.append(False)
-                
-                if not (signals[0] or signals[1] or signals[2]):
-                    message_box.config(text="You must select at least 1 signal type to record")
-                    return
-
-                if not wav_entry.get() == "" and fq_entry.get() == "": # if wave field is populated and frequency field is empty, use .wav file
-                    audio_option = wav_entry.get()
-                elif not fq_entry.get() == "" and wav_entry == "": # if frequency field is populated and wave field is empty, use frequency entry
-                    try:
-                        audio_option = int(fq_entry.get())
-                    except:
-                        message_box.config(text="If you did not enter a .wave file, the frequency must be specified as a valid integer")
-                        return
-                elif not fq_entry.get() == "" and not wav_entry == "": # if both are populated use frequency entry as default
-                    try:
-                        audio_option = int(fq_entry.get())
-                    except:
-                        message_box.config(text="If you did not enter a .wave file, the frequency must be specified as a valid integer")
-                        return
-                else:
-                    message_box.config(text="One or more invalid parameters. Fix entries and try again.")
-                    print("Invalid Parameters")
-                    return
-                
-                macAddress = ''
-                if device_option == "BITalino":
-                    # Check to see if a BITalino was selected
-                    if not self.mac_combobox.get() == '': # if BITalino field is not empty, continue
-                        mac_option = self.mac_combobox.get()
-                    else: # if empty, throw error message
-                        message_box.config(text="Must choose a BITalino device before continuing")
-                        return
-                    save_to_existing_BITalino_bluetooth_devices(mac_option)
-                    
-                    for i in device_list:
-                        if i[1] == mac_option:
-                            macAddress = i[0]
-                
-                
-
-                print(f"macAddress = {macAddress}")
-
-                self.recording_info = {
-                    "sample_rate": sample_rate,
-                    "duration": duration,
-                    "macAddress": macAddress,
-                    "audio_option": audio_option,
-                    "time_option": time_option,
-                    "di_option": di_option,
-                    "signals": signals,
-                    "device_option": device_option
-                }
-
-                recording_info = {
-                    "sample_rate": sample_rate,
-                    "duration": duration,
-                    "macAddress": macAddress,
-                    "audio_option": audio_option,
-                    "time_option": time_option,
-                    "di_option": di_option,
-                    "signals": signals,
-                    "device_option": device_option
-                }
-                
-                self.next_page()
-                
-            except Exception as e:
-                message_box.config(text="One or more invalid parameters. Fix entries and try again.")
-                print(e)
-            
-        message_box = tk.Message(frame, text="", anchor="center", width=500, font=("Calibri Light", 10), foreground="red", background="white")
-        message_box.grid(row=21, column=2, padx=5, pady=5, sticky="nsew", columnspan=4)
     
 
     def next_page(self):
