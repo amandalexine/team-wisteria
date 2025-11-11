@@ -1,8 +1,15 @@
+# procResult2.py
+#   • analyzes signals by passing values from baseline and test 
+#   • uses ECG_ML.py to compute results
+#_______________________________________________________________________________#
+
+#imports
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import ProcessingFunctions as proc
 import saveFunc as sv
 import hearing_test as sound # Kyle's code
+#_______________________________________________________________________________#
 
 from ECG_ML import *
 
@@ -72,6 +79,18 @@ ml_graphs = {
 
 
 def analyze_baseline(channels, samplingRate, controller):
+    """
+    args:
+        channels (array of booleans): which biosignal channels are enabled for processing 
+        samplingRate (int): rate at which signals were sampled
+        controller (object): used to manage and switch between different application frames
+    
+    loads the raw data from the baseline_sequence.txt to perform initial processing
+        cleans the EDA and EMG data using Discrete Wavelet Transform
+        Gets ECG features from ECG_ML.py
+        LMS (Least Mean Square) adaptive filter is applied and a plot for the baseline data is created and stored in graphs 
+
+    """
 
     global analysis_results
     global ml_data
@@ -143,6 +162,21 @@ def analyze_baseline(channels, samplingRate, controller):
         raise  
 
 def analyze_result(channels, samplingRate, controller):
+    """
+    args:
+        channels (array of booleans): which biosignal channels are enabled for processing 
+        samplingRate (int): rate at which signals were sampled
+        controller (object): used to manage and switch between different application frames
+    
+    loads in the raw data from the test_sequence.txt to perform processing (same as analyze_baseline, but on the test data now)
+        Data from EDA and EMG are cleaned, ECG is left alone
+        test statistics are calculated and stored as graphs
+        percentage difference from baseline results are taken
+        Diagnostic flags are assigned based on statistical differences from the baseline
+        KNN classification is run specifically on the ECG dataset
+
+    """
+
     global analysis_results
     global graphs
     global ml_data
@@ -227,6 +261,22 @@ def analyze_result(channels, samplingRate, controller):
 
 
 def plot_ecg(ecg, title, color, sampling_rate=100, neurokit_graph=False):
+    """
+    args:
+        ecg (array): signal data
+        title (string): plot name
+        color (string): color of plot
+        sample_rate (int): rate at which sample was taken (default 100)
+        neurokit_graph (boolean): if the function should use nk.ecg_process to clean the signal
+    
+    returns:
+        figure of the ecg plot
+    
+    plots the ECG sigal against time
+    plots the cleaned ECG signal and uses scatter points to highlight R-peaks
+        if fails, prints back raw input signal
+
+    """
     try:
         signals, r_info = nk.ecg_process(ecg, sampling_rate)
 
@@ -270,6 +320,20 @@ def plot_ecg(ecg, title, color, sampling_rate=100, neurokit_graph=False):
 
 
 def plot_eda(eda_signal, title, color, sampling_rate=100, neurokit_graph=False):
+    """
+    args:
+        eda (array): signal data
+        title (string): plot name
+        color (string): color of plot
+        sample_rate (int): rate at which sample was taken (default 100)
+        neurokit_graph (boolean): if the function should use nk.ecg_process to clean the signal (always false unless ECG)
+    
+    returns:
+        figure of the eda plot
+    
+    plots the EDA sigal against time
+
+    """
     time_axis = np.linspace(0, len(eda_signal) / sampling_rate, len(eda_signal))
     
     fig = plt.Figure(figsize=(13, 2))
@@ -285,6 +349,20 @@ def plot_eda(eda_signal, title, color, sampling_rate=100, neurokit_graph=False):
     return fig
 
 def plot_emg(emg_signal, title, color, sampling_rate=100, neurokit_graph=False):
+    """
+    args:
+        emg (array): signal data
+        title (string): plot name
+        color (string): color of plot
+        sample_rate (int): rate at which sample was taken (default 100)
+        neurokit_graph (boolean): if the function should use nk.ecg_process to clean the signal (always false unless ECG)
+    
+    returns:
+        figure of the emg plot
+    
+    plots the EMG sigal against time
+
+    """
     time_axis = np.linspace(0, len(emg_signal) / sampling_rate, len(emg_signal))
     
     fig = plt.Figure(figsize=(13, 2))
@@ -301,10 +379,34 @@ def plot_emg(emg_signal, title, color, sampling_rate=100, neurokit_graph=False):
 
 
 def create_stats_plot(signal, title, section_size=2000):
+    """
+    args:
+        signal (array): signal data
+        title (string): plot name
+        section_size (int): size of the section (default 2000)
+    
+    returns:
+        Matplotlib figure plot of the section
+    
+    Calculates statistics over defined sections of a signal and plots the statistics 
+
+    """
     stats_result = proc.error_stats.calculate_sectioned_stats(signal, section_size)
     return proc.error_stats.plot_sectioned_stats(stats_result, title)
 
 def create_lms_plot(title, eda_filter=None, ecg_filter=None, emg_filter=None):
+    """
+    args: 
+        title (string): name of plot
+        eda_filter (object): LMS figure object provided (default none)
+        ecg_filter (object): LMS figure object provided (default none)
+        emg_filter (object): LMS figure object provided (default none)
+    returns:
+        Matplotlib figure plot 
+    
+    for each provided filter (ECG, EDA, EMG) it creates a subplot showing the original signal, the estimated signal, and the estimation error
+
+    """
     num_signals = sum(f is not None for f in [eda_filter, ecg_filter, emg_filter])
     fig = plt.Figure(figsize=(7, (3 * num_signals)))
     fig.suptitle(title, fontsize=14)
@@ -352,6 +454,17 @@ def create_lms_plot(title, eda_filter=None, ecg_filter=None, emg_filter=None):
     return fig
 
 def apply_lms_filter(signal):
+    """
+    args:
+        signal (array): data signal
+        
+    return:
+        lms_filter (object): object for plotting signal
+    
+    applies the LMS (Least Mean Squares) adaptive filter to a biosignal
+        Instantiates the filter object, calls update method and calculates error 
+
+    """
     lms_filter = proc.LMSAdaptiveFilter(signal)
     lms_filter.update()
     lms_filter.error()
@@ -361,6 +474,26 @@ def apply_lms_filter(signal):
 
 # --------------------------------MAIN FUNCTION-----------------------------------------
 def main(file_path, channels, samplingRate, controller):
+    """
+    args:
+        file_path (string): name of file to save results
+        channels (boolean list): enabling channels
+        samplingRate (int): rate at which signal is sampled
+        controller (object): GUI management object
+    
+    returns:
+        returns true upon completion
+        
+    controls entire analysis pipeline
+        calls baseline and test analysis
+        handles errors
+        saves graphs and stat results
+        if ECG was selected (by controller), save ML results and display
+        load results and graphs to different page
+        tell user results have been saved and show results
+
+
+    """
     global graphs
     global ml_data
     global analysis_results
@@ -393,5 +526,6 @@ def main(file_path, channels, samplingRate, controller):
     # Tell user that the results have been saved and show the results
     sound.tts("Results have been saved", 150)
     controller.show_frame("ResultsPage")
+
 
     return True
