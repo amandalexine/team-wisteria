@@ -1,3 +1,6 @@
+# hearing_test.py
+#   • Initializes mixers for Pygame and sets up any UI audio functions for playing generated sounds and/or audio files
+#_______________________________________________________________________________#
 import pyttsx3
 import numpy as np
 import pygame
@@ -167,4 +170,5 @@ def play_for_time(secs, final_volume_db ,freq=1000):
     time.sleep(secs)
     # Start playing the sound
     beep.stop()
+
 
