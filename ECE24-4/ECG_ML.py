@@ -1,13 +1,38 @@
+# ECG_ML.py
+#   • Holds a K-Nearest Neighbor ML model
+#   • End-to-end Machine Learning module to analyze, quantify, and classify ECG data
+#   • Takes an ECG raw signal, transforms it into quantifiable biomarkers and compares them across different measurements
+#   • Then uses a trained model to draw a conclusion about the observed change
+#_______________________________________________________________________________#
+
+#imports
 import numpy as np
-import matplotlib
+import matplotli
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import neurokit2 as nk
 import joblib
 import shap
+#_______________________________________________________________________________#
 
 # ------------------------------------------------ECG PREPROCESSING FUNCS-----------------------------------------------------------
 def calculate_bpm_hrv(signals, r_info, sampling_rate=100):
+    """
+    Args:
+        signals (array of values?): data values brought in by sensors
+        r_info (array): information about the r-wave in ecg signal
+        sampling_rate: samples acquired per second
+        
+    Returns:
+        bpm: beats per minute
+        mean_rr: average rr ratio
+        r_peaks: the peaks that are within the r information
+        hrv: heart rate variability
+        hr_sd: heart rate standard deviation
+    
+    calculates common heart rate variability and heart rate metrics from a list of R-peak locations obtained from an ECG signal
+
+    """
     r_peaks = r_info['ECG_R_Peaks']
 
     rr_intervals = np.diff(r_peaks) / sampling_rate
@@ -26,6 +51,20 @@ def calculate_bpm_hrv(signals, r_info, sampling_rate=100):
 
 
 def calculate_qrs_duration(signals, r_info, sampling_rate=100):
+    """
+    args:
+        signals (array): ecg signal
+        r_info (array): R wave on signal
+        sampling_rate (int): rate of samples (default 100)
+        
+    returns:
+        mean of QRS duration for the entire signal as long as it isn’t 0
+        
+    Calculates the QRS Duration in an ECG
+        time interal between the onset of the Q wave and the end of the S wave
+        QRS: series of waves on the ECG that represent the electrical depolarization (contraction) of the ventricles
+    
+    """
     q_peaks = np.where(signals['ECG_Q_Peaks'] == 1)[0]  # indices of Q-peaks
     s_peaks = np.where(signals['ECG_S_Peaks'] == 1)[0]  # indices of S-peaks
 
@@ -54,15 +93,48 @@ def calculate_qrs_duration(signals, r_info, sampling_rate=100):
 
 
 def calculate_r_wave_amplitude(ecg_signal, r_peaks):
+    """
+    args:
+        ecg_signal (array): array containing the ecg signal
+        r_peaks (array): where the r-peaks are in the signal based upon the r-info
+        
+    return: mean amplitude of the r-peaks if there are any
+    
+    calculates the mean amplitude of the R-waves in the ECG signal
+
+    """
     return np.mean([ecg_signal[r] for r in r_peaks]) if r_peaks.any() else 0
 
 
 def calculate_rmssd(r_peaks, sampling_rate=100):
+    """
+    args:
+        signals (array): processed signal information
+        sampling_rate: the rate, samples per second, at which the ECG signal was acquired (default is 100 Hz)
+        
+    returns:
+        returns the root mean square of successive differences
+        
+    calculates the Root Mean Square of the Successive Differences of the RR intervals
+
+    """
     rr_intervals = np.diff(r_peaks) / sampling_rate
     return np.sqrt(np.mean(np.square(np.diff(rr_intervals)))) if len(rr_intervals) > 1 else 0
 
 
 def calculate_pr_mean(signals, r_info, sampling_rate=100):
+    """
+    args:
+        signals (array): processed signal information
+        r_info (array): R-wave information
+        sampling_rate: the rate at which samples were taken (default is 100)
+    
+    returns:
+        pr_mean: PR interval (time between onset of the P wave adn onset of the QRS complex)
+    
+    calculates the mean and standard deviation of the PR interval 
+
+    """
     r_peaks = r_info['ECG_R_Peaks']
     p_peaks = np.where(signals['ECG_P_Peaks'] == 1)[0]  # indices of P-peaks
 
@@ -80,6 +152,21 @@ def calculate_pr_mean(signals, r_info, sampling_rate=100):
 
 
 def calculate_st_mean(signals, r_info, sampling_rate=100):
+    """
+    args:
+        signals (array): processed signal information
+        r_info (array): R-wave information
+        sampling_rate: rate at which samples were taken (default is 100)
+    
+    returns:
+        st_mean: mean of the ST interval
+        st_sd: standard deviation of the ST interval
+        st_intervals:  interval between S-peak and T-peak
+
+    calculates the mean and standard deviation of the ST interval
+        part of the ECG that represents time between the ventricular depolarization and repolarization
+
+    """
     r_peaks = r_info['ECG_R_Peaks']
     s_peaks = np.where(signals['ECG_S_Peaks'] == 1)[0]  # indices of S-peaks
     t_peaks = np.where(signals['ECG_T_Peaks'] == 1)[0]  # indices of T-peaks
@@ -100,6 +187,16 @@ def calculate_st_mean(signals, r_info, sampling_rate=100):
 
 
 def calculate_nfd_mean(ecg_signal):
+    """
+    args:
+        ecg_signal (array): ECG voltage signal
+    
+    returns:
+        mean of nfd_values
+    
+    calculates the NFD (normalized first derivative) of the ECG signal
+
+    """
     if len(ecg_signal) < 2:
         return 0 
 
@@ -115,6 +212,16 @@ def calculate_nfd_mean(ecg_signal):
 
 
 def calculate_nsd_mean(ecg_signal):
+    """
+    args:
+        ecg_signal (array): ECG voltage signal
+    
+    returns:
+        mean of the nsd_values
+    
+    calculates the NSD (normalized second derivative) of the ECG signal
+    
+    """
     if len(ecg_signal) < 3: 
         return 0  
 
@@ -130,6 +237,19 @@ def calculate_nsd_mean(ecg_signal):
 
 
 def calculate_change(old, new, percent=True):
+    """
+    args:
+        old (float): old percentage
+        new (float): new percentage
+        percent (boolean): percent change (true) or absolute difference in percentages (false)
+
+    returns:
+        returns percentage change or absolute difference in percentages
+        
+    calculates the difference between an old value and a new value 
+    default to returning the percentage change
+    
+    """
     if percent:
         return ((new - old) / abs(old)) * 100 if old != 0 else 0  
     else:
@@ -137,6 +257,18 @@ def calculate_change(old, new, percent=True):
 
 
 def get_ecg_features(ecg, sampling_rate=100):
+    """
+    args:
+        ecg (array): ECG signal
+        sampling_rate: rate of samples taken (default of 100)
+    
+    returns:
+        dictionary containing extracted features from ecg signal such as BPM, HRV, HRSD, QRS, AMP, RMSSD, mean RR, mean PR, PR standard deviation, mean ST, mean NFD, mean NSD
+    
+    Main feature extraction using neurokit2 to identify peaks and segments
+    then uses previous fucntiosn to compile 12 features into one library labeled “ecg”
+
+    """
     signals, r_info = nk.ecg_process(ecg, sampling_rate=sampling_rate)
 
     bpm, mean_RR, r_peaks, hrv, hrsd = calculate_bpm_hrv(signals, r_info, sampling_rate)
@@ -169,6 +301,18 @@ def get_ecg_features(ecg, sampling_rate=100):
     return ecg_features
 
 def get_feature_percent_diffs(baseline, test):
+    """
+    args:
+        baseline (ecg features): dictionary of ecg features from baseline signal
+        test (ecg features): dictionary of ecg features from test signal
+
+    returns:
+        dictionary containing percentage differences between baseline and test ecg signals 
+        such as PM, HRV, HRSD, QRS, AMP, RMSSD, mean RR, mean PR, PR standard deviation, mean ST, mean NFD, mean NSD
+    
+    calculates the percentage difference for each feature between the baseline set of features and the test set of features
+
+    """
     percent_diffs =  {
         "bpm": calculate_change(baseline['bpm'], test['bpm']),
         "hrv": calculate_change(baseline['hrv'], test['hrv']),
@@ -188,6 +332,21 @@ def get_feature_percent_diffs(baseline, test):
 
 
 def ecg_classification_knn(diff_features):
+    """
+    args:
+        diff_features: dictionary of feature differences (expected to be percentage differences)
+    
+    returns:
+        dictionary containing model classification, classification confidence, and the SHAP plot figure
+    
+    performs the final classification using the K-Nearest Neighbors (KNN)
+        KNN - supervised learning algorithm used for both classification and regression tasks
+        loads trained model and scaler
+        scales the input features
+        makes a prediction
+        calculates the probability/confidence and generates a SHAP waterfall plot for model interpretability
+
+    """
     knn_model = joblib.load("ML_files/knn_model.joblib") # Load in the knn model (94.5% f1 accuracy)
     scaler = joblib.load("ML_files/scaler_1.joblib") # Load in scaler
     background = np.load("ML_files/shap_background.npy", allow_pickle=True) # Load in background for shap graph
@@ -270,4 +429,5 @@ def ecg_classification_knn(diff_features):
     return {'classification': model_prediction, 
             'confidence': proba, 
             'fig': fig}
+
     
