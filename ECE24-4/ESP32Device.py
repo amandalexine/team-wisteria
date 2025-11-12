@@ -1,7 +1,7 @@
 import serial
 import serial.tools.list_ports
 import time
-import hearing_test as sound
+import hearingTest as sound
 
 # Device class for connecting to the ESP32 Hardware over Bluetooth
 class Device():
