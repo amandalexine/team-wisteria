@@ -16,7 +16,17 @@ device_option = "BITalino"
 recording_info = {}
 
 # Improves display scaling on high-DPI monitors (Windows)
-ctypes.windll.shcore.SetProcessDpiAwareness(1)
+# ctypes.windll.shcore.SetProcessDpiAwareness(1)
+
+import platform
+import ctypes
+
+if platform.system() == "Windows":
+    try:
+        ctypes.windll.shcore.SetProcessDpiAwareness(1)
+    except Exception as e:
+        print("Warning: could not set DPI awareness:", e)
+
 
 
 # ============================
@@ -30,8 +40,14 @@ class MainApp(tk.Tk):
 
         # Window setup
         self.title("Noise Sensitivity Test")
-        self.state('zoomed')  # Maximizes window
-        self.iconbitmap('Utilities/ss_logo.ico')
+        import platform
+
+        if platform.system() == "Windows":
+            self.state('zoomed')
+        else:
+            self.attributes('-zoomed', True)  # Works on most Linux desktops
+
+        # self.iconbitmap('Utilities/ss_logo.ico')
 
         # Configure grid for resizing
         self.grid_rowconfigure(0, weight=1)

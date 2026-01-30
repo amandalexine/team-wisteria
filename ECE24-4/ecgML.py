@@ -7,7 +7,7 @@
 
 #imports
 import numpy as np
-import matplotli
+import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import neurokit2 as nk

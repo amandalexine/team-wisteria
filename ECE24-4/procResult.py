@@ -11,7 +11,7 @@ import saveFuncs as sv
 import hearingTest as sound # Kyle's code
 #_______________________________________________________________________________#
 
-from ECG_ML import *
+from ecgML import *
 
 # Dictionary of the previous team's stats results
 analysis_results = {

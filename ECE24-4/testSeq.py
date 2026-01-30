@@ -5,8 +5,8 @@ from bitalino import BITalino
 import os
 import multiprocessing as multi
 import sys
-from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-from comtypes import CLSCTX_ALL
+# from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+# from comtypes import CLSCTX_ALL
 import hearingTest as sound # Kyle's code
 import openpyxl
 import matplotlib.pyplot as plt
@@ -103,9 +103,65 @@ def save_to_patients_excel_file(baseline: bool, filename: str, emg, ecg, eda):
     # Save workbook with a new name or overwrite the existing one
     workbook.save(filename)
 
-def set_computer_volume(percentage):
+# def set_computer_volume(percentage):
+#     """
+#     Adjust system master volume using Windows audio API.
+
+#     Parameters
+#     ----------
+#     percentage : float
+#         Volume level as a percentage (0-100).
+
+#     Returns
+#     -------
+#     None
+
+#     Side Effects
+#     -------------
+#     Changes the master output volume of the host computer.
+#     """
+
+#     devices = AudioUtilities.GetSpeakers()
+#     interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+#     volume = interface.QueryInterface(IAudioEndpointVolume)
+
+#     # Volume is set as a scalar between 0.0 and 1.0 (0% to 100%)
+#     volume.SetMasterVolumeLevelScalar(percentage/100, None)  # Set volume to a percentage
+
+# def play_wavefile(sound, duration):
+#     """
+#     Play a WAV sound file for a fixed duration.
+
+#     Parameters
+#     ----------
+#     sound : pygame.mixer.Sound
+#         Preloaded sound object to play.
+#     duration : float
+#         Playback duration in seconds.
+
+#     Returns
+#     -------
+#     None
+#     """
+
+#     start_time = time.time()
+
+#     while(1):
+#         sound.play()
+#         time.sleep(1)
+#         sound.stop()
+
+#         # end at the specified duration
+#         if time.time() - start_time > duration:
+#             sound.stop()
+#             break
+
+import platform
+import subprocess
+
+def set_computer_volume(percentage: float) -> bool:
     """
-    Adjust system master volume using Windows audio API.
+    Cross-platform: set the system master volume.
 
     Parameters
     ----------
@@ -114,47 +170,79 @@ def set_computer_volume(percentage):
 
     Returns
     -------
-    None
-
-    Side Effects
-    -------------
-    Changes the master output volume of the host computer.
+    bool
+        True if the operation likely succeeded, False if it failed or couldn't be performed.
     """
+    # clamp to 0..100
+    try:
+        pct = max(0.0, min(100.0, float(percentage)))
+    except Exception:
+        print(f"set_computer_volume: invalid percentage {percentage}")
+        return False
 
-    devices = AudioUtilities.GetSpeakers()
-    interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
-    volume = interface.QueryInterface(IAudioEndpointVolume)
+    system = platform.system()
+    if system == "Windows":
+        try:
+            # import here to avoid import errors on non-Windows systems
+            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
+            from comtypes import CLSCTX_ALL
+            # use the pycaw API to set master volume scalar (0.0 - 1.0)
+            devices = AudioUtilities.GetSpeakers()
+            interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+            volume = interface.QueryInterface(IAudioEndpointVolume)
+            volume.SetMasterVolumeLevelScalar(pct / 100.0, None)
+            return True
+        except Exception as e:
+            print("set_computer_volume (Windows): failed to set volume via pycaw:", e)
+            print(" - Ensure 'pycaw' and 'comtypes' are installed and you're on Windows.")
+            return False
 
-    # Volume is set as a scalar between 0.0 and 1.0 (0% to 100%)
-    volume.SetMasterVolumeLevelScalar(percentage/100, None)  # Set volume to a percentage
+    elif system == "Linux":
+        # Try amixer (ALSA). Many distros have it as part of alsa-utils.
+        try:
+            # Some systems expect 'Master' control; others use 'PCM' or different names.
+            # We'll try 'Master' first, fallback to 'PCM' if needed.
+            cmd = ["amixer", "sset", "Master", f"{int(round(pct))}%"]
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if proc.returncode == 0:
+                return True
+            # fallback
+            cmd2 = ["amixer", "sset", "PCM", f"{int(round(pct))}%"]
+            proc2 = subprocess.run(cmd2, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if proc2.returncode == 0:
+                return True
+            print("set_computer_volume (Linux): amixer returned non-zero exit code.")
+            print("stdout:", proc.stdout.decode('utf-8', errors='ignore'))
+            print("stderr:", proc.stderr.decode('utf-8', errors='ignore'))
+            return False
+        except FileNotFoundError:
+            print("set_computer_volume (Linux): 'amixer' not found. Install alsa-utils or use PulseAudio tools.")
+            return False
+        except Exception as e:
+            print("set_computer_volume (Linux): unexpected error:", e)
+            return False
 
-def play_wavefile(sound, duration):
-    """
-    Play a WAV sound file for a fixed duration.
+    elif system == "Darwin":  # macOS
+        try:
+            # macOS 'osascript' sets output volume as integer 0..100
+            cmd = ["osascript", "-e", f"set volume output volume {int(round(pct))}"]
+            proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            if proc.returncode == 0:
+                return True
+            else:
+                print("set_computer_volume (macOS) failed; osascript exit code:", proc.returncode)
+                return False
+        except FileNotFoundError:
+            print("set_computer_volume (macOS): 'osascript' not found (very unusual).")
+            return False
+        except Exception as e:
+            print("set_computer_volume (macOS): unexpected error:", e)
+            return False
 
-    Parameters
-    ----------
-    sound : pygame.mixer.Sound
-        Preloaded sound object to play.
-    duration : float
-        Playback duration in seconds.
+    else:
+        print(f"set_computer_volume: Unsupported OS '{system}'. Cannot set system volume.")
+        return False
 
-    Returns
-    -------
-    None
-    """
-
-    start_time = time.time()
-
-    while(1):
-        sound.play()
-        time.sleep(1)
-        sound.stop()
-
-        # end at the specified duration
-        if time.time() - start_time > duration:
-            sound.stop()
-            break
 
 def play_sound(duration, frequency, interval, di, final_volume_db=-30):
     """
