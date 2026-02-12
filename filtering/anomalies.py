@@ -7,7 +7,8 @@ from autoencoders import Autoencoder
 # ----------------------------
 # Load sampling rate (for plotting only)
 # ----------------------------
-file_path = '/Users/annalee/Desktop/Spring 2026/EE98/01:18:26 testing/4_1.xlsx'
+# file_path = '/Users/annalee/Desktop/Spring 2026/EE98/01:18:26 testing/4_1.xlsx'
+file_path = "C:\Users\kbei5\Downloads\4_1.xlsx"
 info_df = pd.read_excel(file_path, sheet_name='Recording Info', header=None)
 
 def get_sampling_rate(info_df):

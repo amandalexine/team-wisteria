@@ -8,6 +8,7 @@
 #   • includes plotting functions for visualizing original vs filtered signals
 #_______________________________________________________________________________#
 
+# last updated: 2/12/26
 
 import pandas as pd
 import numpy as np
@@ -19,7 +20,8 @@ from scipy.signal import butter, filtfilt, find_peaks
 # -------------------------------
 
 #file_path = '/Users/annalee/Desktop/Fall 2025-26/EE97/dr. solet data/2_1.xlsx'
-file_path = '/Users/annalee/Desktop/Spring 2026/EE98/01:18:26 testing/4_1.xlsx'
+# file_path = '/Users/annalee/Desktop/Spring 2026/EE98/01:18:26 testing/4_1.xlsx'
+file_path = r"C:\Users\kbei5\Downloads\4_1.xlsx"
 sheets = ['Baseline Data', 'Test Data']
 
 #read the recording info tab in excel sheet to get sampling rate
@@ -114,6 +116,52 @@ def plot_ecg_with_r_peaks(time, ecg_filtered, r_peaks):
     #plt.tight_layout()
     #plt.show()
 
+# look at frequency spectrum to see structure of signal
+def plot_signal_spectra(orig_signal, processed_signal=None, fs=1.0, title_prefix="Signal", rectified=False):
+    """
+    Plots the frequency content of a signal (or two signals side by side) using 1x2 subplots.
+
+    Parameters:
+    - orig_signal: 1D array of original signal
+    - processed_signal: optional 1D array of processed signal (e.g., filtered/rectified)
+    - fs: sampling rate in Hz
+    - title_prefix: string prefix for plot titles
+    - rectified: if True, takes absolute value of processed_signal
+    """
+    # Determine number of subplots
+    ncols = 2 if processed_signal is not None else 1
+    fig, axes = plt.subplots(1, ncols, figsize=(7*ncols, 5))
+
+    # Make axes indexable in both cases
+    if ncols == 1:
+        axes = [axes]
+
+    # ---------- Original signal ----------
+    N = len(orig_signal)
+    freqs = np.fft.rfftfreq(N, d=1/fs)
+    fft_orig = np.fft.rfft(orig_signal)
+    mag_orig = np.abs(fft_orig) / N
+    axes[0].plot(freqs, mag_orig)
+    axes[0].set_title(f"{title_prefix} - Original Spectrum")
+    axes[0].set_xlabel("Frequency (Hz)")
+    axes[0].set_ylabel("Magnitude")
+    axes[0].grid(True)
+    axes[0].set_xlim(0, fs/2)
+
+    # ---------- Processed signal ----------
+    if processed_signal is not None:
+        sig = np.abs(processed_signal) if rectified else processed_signal
+        fft_proc = np.fft.rfft(sig)
+        mag_proc = np.abs(fft_proc) / N
+        axes[1].plot(freqs, mag_proc, color='orange')
+        axes[1].set_title(f"{title_prefix} - Processed Spectrum")
+        axes[1].set_xlabel("Frequency (Hz)")
+        axes[1].set_ylabel("Magnitude")
+        axes[1].grid(True)
+        axes[1].set_xlim(0, fs/2)
+
+    plt.tight_layout()
+
 # -------------------------------
 # 4. Apply filters & plot
 # -------------------------------
@@ -177,7 +225,7 @@ for sheet_name in sheets:
         # Detect R-peaks
         r_peaks, properties = detect_r_peaks(ecg_qrs, fs_ecg)
 
-        plot_ecg_with_r_peaks(time_sec, ecg_qrs, r_peaks)
+        # plot_ecg_with_r_peaks(time_sec, ecg_qrs, r_peaks)
 
     # ---------------- EMG ----------------
     if 'EMG' in df.columns:
@@ -187,8 +235,9 @@ for sheet_name in sheets:
             df['EMG'], filter_type='bandpass',
             lowcut=20, highcut=highcut, fs=fs_emg
         )
-        filtered_df['EMG'] = emg_filtered
-        #plot_signals(time, df['EMG'], emg_filtered, f"{sheet_name} - EMG")
+        emg_rectified = np.abs(emg_filtered)
+        filtered_df['EMG'] = emg_rectified
+        #plot_signals(time, df['EMG'], emg_filteed, f"{sheet_name} - EMG")
         ax = axes[row_map['EMG'], col_map[sheet_name]]
         ax.plot(time, df['EMG'], alpha=0.4, label='Original')
         ax.plot(time, emg_filtered, label='Filtered')
@@ -212,6 +261,33 @@ for sheet_name in sheets:
     filtered_outputs[sheet_name] = filtered_df
 
 plt.tight_layout()
+
+# plot frequency spectrums
+# Define which signals to process
+signal_types = ['ECG', 'EMG', 'EDA']
+
+for sheet_name in sheets:
+    print(f"\nProcessing frequency content for {sheet_name}...")
+    raw_df = data[sheet_name]
+    filt_df = filtered_outputs[sheet_name]  # filtered/rectified signals
+    
+    for sig in signal_types:
+        if sig in raw_df.columns:
+            orig_signal = raw_df[sig].values
+            # Use filtered signal if it exists, otherwise None
+            processed_signal = filt_df[sig].values if sig in filt_df.columns else None
+            # Rectify EMG for plotting spectrum
+            rectified = True if sig == 'EMG' else False
+            
+            plot_signal_spectra(
+                orig_signal=orig_signal,
+                processed_signal=processed_signal,
+                fs=fs,  # use the correct sampling rate for this sheet
+                title_prefix=f"{sheet_name} - {sig}",
+                rectified=rectified
+            )
+
+
 plt.show()
 
 
