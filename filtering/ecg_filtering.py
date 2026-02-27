@@ -21,7 +21,8 @@ from scipy.signal import butter, filtfilt, find_peaks
 
 #file_path = '/Users/annalee/Desktop/Fall 2025-26/EE97/dr. solet data/2_1.xlsx'
 # file_path = '/Users/annalee/Desktop/Spring 2026/EE98/01:18:26 testing/4_1.xlsx'
-file_path = r"C:\Users\kbei5\Downloads\4_1.xlsx"
+file_path = r"C:\Users\kbei5\Downloads\2.2_1.xlsx"
+# file_path = r"C:\Users\kbei5\Downloads\anna_1.xlsx"
 sheets = ['Baseline Data', 'Test Data']
 
 #read the recording info tab in excel sheet to get sampling rate
@@ -287,6 +288,63 @@ for sheet_name in sheets:
                 rectified=rectified
             )
 
+# plot the difference between the filtered baseline and test data
+fig_diff, axes_diff = plt.subplots(3, 1, figsize=(14, 10), sharex=True)
+
+signal_types = ['ECG', 'EMG', 'EDA']
+
+for i, sig in enumerate(signal_types):
+    
+    if sig in filtered_outputs['Baseline Data'].columns and sig in filtered_outputs['Test Data'].columns:
+        
+        baseline = filtered_outputs['Baseline Data'][sig].values
+        test = filtered_outputs['Test Data'][sig].values
+        
+        # Match lengths
+        min_len = min(len(baseline), len(test))
+        baseline = baseline[:min_len]
+        test = test[:min_len]
+        
+        time = np.arange(min_len) / fs
+        
+        # --- EDA: percent change ---
+        if sig == 'EDA':
+            baseline_mean = np.mean(baseline)
+            if baseline_mean != 0:
+                percent_change = (test - baseline_mean) / baseline_mean * 100  # percent
+                mean_diff = np.mean(percent_change)
+                print(f"{sig} mean percent change (Test vs Baseline): {mean_diff:.2f}%")
+                
+                axes_diff[i].plot(time, percent_change, color='green')
+                axes_diff[i].set_title(f"{sig} Percent Change (Test vs Baseline)")
+                axes_diff[i].set_ylabel("% Change")
+                axes_diff[i].grid(True)
+            else:
+                print(f"{sig} baseline mean is zero, cannot compute percent change.")
+        
+        # --- ECG & EMG: keep z-score difference ---
+        else:
+            baseline_mean = np.mean(baseline)
+            baseline_std = np.std(baseline)
+            
+            if baseline_std < 1e-6:
+                print(f"{sig} baseline std too small, skipping z-score.")
+                continue
+            
+            baseline_z = (baseline - baseline_mean) / baseline_std
+            test_z = (test - baseline_mean) / baseline_std
+            
+            difference = test_z - baseline_z
+            mean_diff = np.mean(difference)
+            print(f"{sig} mean z-score difference (Test - Baseline): {mean_diff:.4f}")
+            
+            axes_diff[i].plot(time, difference, color='purple')
+            axes_diff[i].set_title(f"{sig} Z-Score Difference (Test - Baseline)")
+            axes_diff[i].set_ylabel("Z Units")
+            axes_diff[i].grid(True)
+
+axes_diff[-1].set_xlabel("Time (s)")
+plt.tight_layout()
 
 plt.show()
 
