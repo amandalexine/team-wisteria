@@ -36,20 +36,39 @@ StartPage → LoadDataPage → LoadingPage → ResultsPage → ShapPage → Stat
 ## Project Structure
 ```
 ECE24-4/
-├── guiApp.py
-├── procResult.py
-├── procFuncs.py
-├── recFuncs.py
-├── saveFuncs.py
-├── hearingTest.py
-├── testSeq.py
-├── ecgML.py
-├── filtering/
-├── Utilities/
-├── audio_files/
-├── Patient Records/
+├── guiApp.py                  # main entry point
 ├── requirements.txt
-└── README.md
+├── README.md
+│
+├── app/
+│   ├── recFuncs.py
+│   ├── hearingTest.py
+│   ├── testSeq.py
+│   ├── testSettings.py
+│   └── saveFuncs.py
+│
+├── processing/
+│   ├── procFuncs.py
+│   └── procResult.py
+│
+├── ml/
+│   ├── ecgML.py
+│   ├── ML_files/
+│   └── ML_Training/
+│
+├── hardware/
+│   ├── esp32Device.py
+│   └── esp32Arduino.cpp
+│
+├── assets/
+│   ├── Utilities/
+│   └── audio_files/
+│
+├── data/
+│   ├── baseline_sequence.txt
+│   └── test_sequence.txt
+│
+└── patient_records/
 ```
 ---
 
