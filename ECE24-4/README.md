@@ -34,7 +34,7 @@ StartPage → LoadDataPage → LoadingPage → ResultsPage → ShapPage → Stat
 ---
 
 ## Project Structure
-
+```
 ECE24-4/
 ├── guiApp.py
 ├── procResult.py
@@ -50,44 +50,44 @@ ECE24-4/
 ├── Patient Records/
 ├── requirements.txt
 └── README.md
-
+```
 ---
 
 ## Setup (Linux Recommended)
 
 ### Create virtual environment
-
+```
 cd ~/personal/team-wisteria/ECE24-4
 python3 -m venv venv
 source venv/bin/activate
-
+```
 ---
 
 ### Install dependencies
-
+```
 pip install numpy pandas matplotlib pillow
 pip install customtkinter ttkbootstrap
 pip install PyWavelets neurokit2 scikit-learn shap
 pip install openpyxl pygame pyttsx3 keyboard
 pip install bitalino
-
+```
 ---
 
 ### Run the application
-
+```
 python3 guiApp.py
-
+```
 ---
 
 ## Required Assets
-
+```
 Utilities/
 ├── ss_logo.ico
 ├── sound_sense_logo.png
 ├── logo_loading_1.png
 ├── logo_loading_2.png
 └── logo_loading_3.png
-
+```
 ---
 
 ## Data Format (Updated)
@@ -96,15 +96,15 @@ baseline_sequence.txt
 test_sequence.txt  
 
 CSV format:
-
+```
 Timestamp (ms), ECG (V), EMG (V), EDA (V)
-
+```
 ---
 
 ## Output
-
+```
 Patient Records/Patient_<id>/<id>_<N>.xlsx
-
+```
 ---
 
 ## Signal Processing Pipeline
