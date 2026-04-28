@@ -142,8 +142,5 @@ ECG:
 ---
 
 ## Authors
-
-SoundSense Capstone Team Wisteria:
-Karen Bei, Anna Lee, Amanda-Lexine Sunga, Amanda Yan
-_Tufts University — Electrical and Computer Engineering Department 
-_
+Team Wisteria:
+Karen Bei, Anna Lee, Amanda-Lexine Sunga, Amanda Yan (Tufts ECE '26)
