@@ -26,7 +26,6 @@ team-wisteria/
 |---|---|
 | [`ECE24-4/`](ECE24-4/) | Desktop application: GUI, biosignal pipeline, ML classification, Excel export |
 | [`fern/`](fern/) | ESP32 firmware for the custom acquisition hardware (Fern box) |
-| [`filtering/`](filtering/) | Signal filtering notebooks and preprocessing experiments |
 
 ## Hardware
 
