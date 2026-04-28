@@ -1,89 +1,42 @@
-// FOR USE IN ARDUINO IDE
+# team-wisteria
 
-#include "BluetoothSerial.h"
-#include <Adafruit_ADS1X15.h>
-// Create the ADS1115 object for analog input
-Adafruit_ADS1115 ads;
+Senior design project — software component.
 
-// Name of the Bluetooth device when pairing
-String device_name = "ESP32-BT";
+## Overview
 
-// Check Bluetooth availability
-#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
-#error Bluetooth is not enabled! Please enable it in your menuconfig.
-#endif
+**SoundSense** is a noise sensitivity testing and biosignal analysis system designed for clinical use. It presents audio stimuli to a subject while simultaneously recording physiological responses (ECG, EMG, EDA), then applies machine learning to classify whether an abnormal autonomic response occurred.
 
-// Check Serial Port Profile
-#if !defined(CONFIG_BT_SPP_ENABLED)
-#error Serial Port Profile (SPP) for Bluetooth is not enabled on your ESP32.
-#endif
+The system supports two hardware backends: **BITalino** (Bluetooth biosignal device) and a custom **ESP32-based "Fern box"**. Results are exported to a per-patient Excel workbook and visualized in a desktop GUI.
 
-//to start reading adc
-bool starting = true;
+## Repository Structure
 
-BluetoothSerial SerialBT;
+```
+team-wisteria/
+├── ECE24-4/            # Main application — GUI, signal processing, ML pipeline
+├── fern/               # ESP32 firmware and embedded acquisition code (Fern box)
+├── filtering/          # Signal filtering experiments and notebooks
+├── filtered_baseline.csv   # Sample baseline dataset
+├── filtered_test.csv       # Sample test dataset
+└── README.md
+```
 
-// setup()
-// ---------------------------------------------------------------
-// Purpose:
-//   Initializes serial communication, Bluetooth, and the ADS1115 ADC.
-// Description:
-//   - Starts the serial monitor for debugging
-//   - Initializes Bluetooth with the given name
-//   - Configures the ADS1115 gain and data rate
-//   - Prints status messages over the serial monitor
+## Submodules
 
-void setup() {
-  Serial.begin(115200);
-  delay(1000);
+| Folder | Description |
+|---|---|
+| [`ECE24-4/`](ECE24-4/) | Desktop application: GUI, biosignal pipeline, ML classification, Excel export |
+| [`fern/`](fern/) | ESP32 firmware for the custom acquisition hardware (Fern box) |
+| [`filtering/`](filtering/) | Signal filtering notebooks and preprocessing experiments |
 
-  SerialBT.begin(device_name); // Start Bluetooth with given name
-  Serial.println("Bluetooth device started. Pair with \"" + device_name + "\".");
+## Hardware
 
-//   Initialize ADS1115
-   if (!ads.begin()) {
-     Serial.println("Failed to initialize ADS1115!");
-     while (1) { delay(10); }
-   }
+- **BITalino** — Bluetooth biosignal acquisition board (EMG, ECG, EDA channels)
+- **ESP32 Fern box** — Custom acquisition device built by the team
+- Standard audio output — used to deliver calibrated sound stimuli
 
-   //set ADC gain and data rate
-   ads.setGain(GAIN_ONE); //max voltage 4.096 V
-   ads.setDataRate(250); //250 samples/second
-}
+## Tech Stack
 
-// loop()
-// ---------------------------------------------------------------
-// Purpose:
-//   Continuously reads analog values from the ADS1115 and transmits
-//   them as comma-separated voltage readings over Bluetooth.
-// Description:
-//   - Checks if ADC conversion is complete
-//   - Reads from channels 0, 1, and 2
-//   - Converts raw ADC counts to voltage
-//   - Sends the three values over Bluetooth in CSV format
-//   - Example message: "1.23,0.87,2.45"
-
-void loop() {
-  // Proceed only if a conversion has completed or it's the first loop iteration
-  if (ads.conversionComplete() or starting) {
-    // Read from ADS1115 channels 0–2 and convert the values into floats
-    int16_t adc0   = ads.readADC_SingleEnded(0);
-    float   volts0 = ads.computeVolts(adc0);
-    int16_t adc1 = ads.readADC_SingleEnded(1);
-    float volts1 = ads.computeVolts(adc1);
-    int16_t adc2 = ads.readADC_SingleEnded(2);
-    float volts2 = ads.computeVolts(adc2);
-
-    // print one value (probs for debugging)
-    Serial.println(adc0);
-
-    // make csv fomat
-    String dataPacket = String(volts0) + "," + String(volts1) + "," + String(volts2);
-    
-    // send data over bluetooth
-    SerialBT.println(dataPacket);
-
-    // done with first send, so only read/send data when the adc is done
-    starting = false;
-  }
-}
+- Python 3, tkinter / customtkinter, ttkbootstrap
+- NumPy, PyWavelets, NeuroKit2, scikit-learn, SHAP, matplotlib
+- openpyxl (Excel export), pygame (audio), pyttsx3 (TTS)
+- BITalino Python API, ESP32 firmware (C++)
