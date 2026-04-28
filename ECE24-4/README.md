@@ -28,9 +28,9 @@ The main software component of **SoundSense**. A Python desktop application for 
 ---
 
 ## Page Flow
-
+```
 StartPage → LoadDataPage → LoadingPage → ResultsPage → ShapPage → StatsResultsPage → GraphPage
-
+```
 ---
 
 ## Project Structure
